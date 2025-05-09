@@ -61,6 +61,23 @@ class KenerEmbed(commands.Cog):
                             "\nUne version web est disponible [ici](https://status.dayhosting.fr)")
 
         monitors = await self.fetch_data("monitor")
+
+        # ⚠️ Si on ne récupère pas les monitors, afficher le message d'erreur de la capture
+        if not monitors:
+            embed = disnake.Embed(
+                title="Status des serveurs",
+                description=("Une erreur est survenue avec la connexion à notre serveur de status, "
+                            "merci de patienter quelques instants ou de contacter un <@&841787186558926898> - "
+                            "[Membre de l'équipe](https://discord.gg/6smzrQ6bN2)."),
+                color=disnake.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+            embed.set_footer(text=datetime.utcnow())
+            return embed
+
+
+
+
         incidents = await self.fetch_data("incident", {"status": "OPEN"})
 
         monitor_map = {str(m["id"]): m for m in monitors}
