@@ -1,2 +1,3 @@
 /venv/
 /.github/
+/cogs/__pycache__/

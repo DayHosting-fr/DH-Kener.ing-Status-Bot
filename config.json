@@ -1,9 +1,17 @@
 {
-  "UPTIME_KUMA_SERVER": "",
-  "UPTIME_KUMA_USERNAME":"",
-  "UPTIME_KUMA_PASSWORD":"",
-  "DISCORD_BOT_TOKEN": "",
+  "KENER_API_URL": "https://votrekener.net",
+  "KENER_API_KEY": "kener_xxxxxxxxxx",
+  "DISCORD_BOT_TOKEN": "Discord_Token_xxxxxxxxxx",
   "COMMAND_PREFIX": "!!",
-  "CHANNEL_ID": 0,
-  "ACTIVITY_NAME": "Bot in Dev"
+  "CHANNEL_ID": 1234567890,
+  "ACTIVITY_NAME": "Surveille les serveurs",
+  "STATUS_ICONS": {
+      "UP": "<a:dh_online_bot:1369989959150206986>",
+      "DOWN": "<a:dh_offline_bot:1369990018633830401>",
+      "DEGRADED": "<a:dh_warning_bot:1369990072690020472>",
+      "MAINTENANCE": "<a:dh_maintenance_bot:1369989917756624987>",
+      "UNKNOWN": "<a:dh_warning_bot:1369990072690020472>"
+  },
+  "AUTHOR_ICON" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128",
+  "THUMBNAIL_URL" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128"
 }

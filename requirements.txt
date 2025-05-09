@@ -24,7 +24,6 @@ python-engineio==4.9.0
 python-socketio==5.11.2
 requests==2.31.0
 simple-websocket==1.0.0
-uptime_kuma_api==1.2.1
 urllib3==2.2.1
 virtualenv==20.26.1
 websocket-client==1.8.0
