@@ -2,7 +2,7 @@
 
 <p align="center"><img src="https://socialify.git.ci/DayHosting-fr/DH-UptimeKuma-Status-Bot/image?forks=1&issues=1&language=1&owner=1&pulls=1&stargazers=1&theme=Auto" alt="DH-UptimeKuma-Status-Bot" width="640" height="320" /></p>
 
-<p id="description">Introducing DayHosting Bot a versatile Discord bot equipped with a web interface. This bot serves as a default multipurpose tool capable of performing various functions. Among its capabilities it regularly checks the status of servers using the Uptime Kuma API. It logs into the Uptime Kuma server retrieves the status of all servers and sends an embedded message in a Discord channel with the status of each server. The bot updates this information every 60 seconds to ensure accurate and up-to-date data.</p>
+<p id="description">Introducing DayHosting Bot a powerful and versatile Discord bot. Designed as a multipurpose assistant, Kener excels at automating various tasks. One of its key features is real-time server monitoring via the <strong>Kener API</strong>. It connects to your Kener instance, fetches the status of all monitored services, and sends clean, embedded messages to a designated Discord channel. These updates are refreshed every 60 seconds to ensure your data is always current and reliable.</p>
 
 <h2>🚀 Demo</h2>
 
@@ -22,10 +22,10 @@
 pip install -r requirements.txt
 ```
 
-<p>2. Setup .env file</p>
+<p>2. Setup config.json file</p>
 
 ```
-.env.exemple
+config.json.exemple
 ```
 
 <p>3. Execute this project</p>
@@ -36,13 +36,13 @@ python3 main.py
 
 <h2>🍰 Contribution Guidelines:</h2>
 
-*   fr-timothe
+*   nicolabcraft
 
 <h2>💻 Built with</h2>
 
 Technologies used in the project:
 
-*   uptime-kuma-api
+*   requests
 *   disnake
 *   datetime
 *   dotenv
