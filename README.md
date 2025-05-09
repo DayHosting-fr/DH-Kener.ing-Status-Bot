@@ -10,9 +10,9 @@
 
 <h2>Project Screenshots:</h2>
 
-<img src="https://cdn.discordapp.com/attachments/1204549942375620628/1237933803347906580/image.png?ex=663d7332&amp;is=663c21b2&amp;hm=0fa4b7b1736fd42a689a214bcbb49d274c9cd66e3dc411fb5219d5ac0815db9c&amp;" alt="project-screenshot" width="400" height="400/">
+![image](https://github.com/user-attachments/assets/ad2d6074-865a-47ec-9b9b-54a629de54ca)
 
-<img src="https://cdn.discordapp.com/attachments/1204549942375620628/1237942444859985931/image.png?ex=663d7b3e&amp;is=663c29be&amp;hm=a55c2e4d53cae11da7cbfa96e2b49440ed2ab6626ba20f491f7e46998e3e5473&amp;" alt="project-screenshot" width="400" height="400/">
+![image](https://github.com/user-attachments/assets/630af8ef-cc4f-4be8-b177-abc0ca5f952c)
 
 <h2>🛠️ Installation Steps:</h2>
 
