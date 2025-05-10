@@ -1,6 +1,6 @@
 <h1 align="center" id="title">DH-DiscordBot</h1>
 
-<p align="center"><img src="https://socialify.git.ci/DayHosting-fr/DH-UptimeKuma-Status-Bot/image?forks=1&issues=1&language=1&owner=1&pulls=1&stargazers=1&theme=Auto" alt="DH-UptimeKuma-Status-Bot" width="640" height="320" /></p>
+<p align="center"><img src="https://socialify.git.ci/DayHosting-fr/DH-Kener.ing-Status-Bot/image?forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto" alt="DH-Kener.ing-Status-Bot" width="640" height="320" /></p>
 
 <p id="description">Introducing DayHosting Bot a powerful and versatile Discord bot. Designed as a multipurpose assistant, Kener excels at automating various tasks. One of its key features is real-time server monitoring via the <strong>Kener API</strong>. It connects to your Kener instance, fetches the status of all monitored services, and sends clean, embedded messages to a designated Discord channel. These updates are refreshed every 60 seconds to ensure your data is always current and reliable.</p>
 
