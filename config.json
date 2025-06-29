@@ -20,5 +20,8 @@
 
   "_COMMENTAIRE_IMAGES": "Images du bot Discord",
   "AUTHOR_ICON" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128",
-  "THUMBNAIL_URL" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128"
+  "THUMBNAIL_URL" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128",
+
+  "_COMMENTAIRE_FILTERS": "Filtres pour les moniteurs",
+  "EXCLUDED_CATEGORIES": ["category_a_exclure", "autre_category_a_exclure"]
 }

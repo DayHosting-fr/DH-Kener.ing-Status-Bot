@@ -8,6 +8,7 @@ from datetime import datetime
 with open("config.json") as f:
     configs = json.load(f)
 
+EXCLUDED_CATEGORIES = configs.get("EXCLUDED_CATEGORIES", [])
 API_URL = configs["KENER_API_URL"]
 API_KEY = configs["KENER_API_KEY"]
 CHANNEL_ID = configs["CHANNEL_ID"]
@@ -106,15 +107,23 @@ class KenerEmbed(commands.Cog):
         # Grouper les moniteurs par catégorie
         groups = {}
         for mon in monitors:
-            for cat in mon.get("categories") or ["Sans catégorie"]:
+            category_name = mon.get("category_name")
+            categories = [category_name] if isinstance(category_name, str) else category_name or ["Sans catégorie"]
+            for cat in categories:
                 groups.setdefault(cat, []).append(mon)
 
         # Ajouter chaque groupe et ses moniteurs à l'embed
         for group, mons in groups.items():
+            if group in EXCLUDED_CATEGORIES:
+                continue
+            if group == "Home":
+                group = "🔔Général"
             field_value = ""
             for mon in mons:
-                mon_id = str(mon["id"])
                 tag = mon["tag"]
+                if mon.get("category_name") in EXCLUDED_CATEGORIES:
+                    continue
+                mon_id = str(mon["id"])
                 name = mon["name"]
                 status = (await self.fetch_data("status", {"tag": tag})).get("status", "?").upper()
 
@@ -124,14 +133,29 @@ class KenerEmbed(commands.Cog):
                 # Ajouter des messages pour chaque incident lié au moniteur
                 incident_msgs = ""
                 for inc in monitor_incidents[mon_id]:
+                    if inc.get("state") == "RESOLVED" and inc.get("incident_type") != "MAINTENANCE":
+                        continue
                     inc_type = inc.get("incident_type")
                     reason = inc.get("title", "Raison inconnue")
-                    updates = await self.fetch_data(f"incident/{inc['id']}/updates")
-                    desc = updates[0].get("comment") if updates else None
-                    desc_text = f"\n   Description : `{desc}`" if desc else ""
+                    STATE = inc.get("state", "Incident").upper()
+                    if STATE == "INVESTIGATING":
+                        STATE_text = "⚠️ En cours d'investigation"
+                    elif STATE == "IDENTIFIED":
+                        STATE_text = "🔍 Identifié"
+                    elif STATE == "MONITORING":
+                        STATE_text = "👀 En cours de surveillance"
+                    elif inc_type == "MAINTENANCE":
+                        STATE_text = "🔧 En maintenance"
 
-                    if inc_type != "MAINTENANCE":
-                        incident_msgs += f"\n   ⚠️ Incident - Raison : `{reason}`{desc_text}\n"
+                    if STATE != "RESOLVED":
+                        incident_msgs += f"\n   {STATE_text} - Raison : `{reason}`\n"
+
+                    if inc_type == "MAINTENANCE":
+                        end_time = inc.get("end_date_time")
+                        if end_time and datetime.utcnow().timestamp() > end_time:
+                            continue
+                        incident_msgs += f"\n   {STATE_text} - Raison : `{reason}`\n"
+                        icon = configs["STATUS_ICONS"].get("MAINTENANCE", configs["STATUS_ICONS"].get("UNKNOWN"))
                     
                 field_value += f"{icon} - {name}{incident_msgs}\n"
 
@@ -144,6 +168,7 @@ class KenerEmbed(commands.Cog):
                 "<a:online:1237966542352945192> - Serveur en ligne\n"
                 "<a:warning:1237966536212349010> - Serveur en attente\n"
                 "<a:offline:1237966540519768144> - Serveur hors ligne\n"
+                "<a:maintenance:1237966539876543210> - Serveur en maintenance\n"
             ),
             inline=False
         )
