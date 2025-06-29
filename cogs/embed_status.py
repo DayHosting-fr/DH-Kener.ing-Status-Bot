@@ -165,10 +165,10 @@ class KenerEmbed(commands.Cog):
         embed.add_field(
             name="Légende:",
             value=(
-                "<a:online:1237966542352945192> - Serveur en ligne\n"
-                "<a:warning:1237966536212349010> - Serveur en attente\n"
-                "<a:offline:1237966540519768144> - Serveur hors ligne\n"
-                "<a:maintenance:1237966539876543210> - Serveur en maintenance\n"
+                "<a:dh_online_bot:1369989959150206986> - Serveur en ligne\n"
+                "<a:dh_warning_bot:1369990072690020472> - Serveur en attente\n"
+                "<a:dh_offline_bot:1369990018633830401> - Serveur hors ligne\n"
+                "<a:dh_maintenance_bot:1369989917756624987> - Serveur en maintenance\n"
             ),
             inline=False
         )
