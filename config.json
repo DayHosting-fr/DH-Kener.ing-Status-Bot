@@ -1,10 +1,15 @@
 {
+  "_COMMENTAIRE_KENER": "Info sur votre serveur Kener",
   "KENER_API_URL": "https://votrekener.net",
   "KENER_API_KEY": "kener_xxxxxxxxxx",
+
+  "_COMMENTAIRE_BOT": "Info sur le bot Discord",
   "DISCORD_BOT_TOKEN": "Discord_Token_xxxxxxxxxx",
   "COMMAND_PREFIX": "!!",
   "CHANNEL_ID": 1234567890,
   "ACTIVITY_NAME": "Surveille les serveurs",
+
+  "_COMMENTAIRE_ICONS": "Icônes des statuts",
   "STATUS_ICONS": {
       "UP": "<a:dh_online_bot:1369989959150206986>",
       "DOWN": "<a:dh_offline_bot:1369990018633830401>",
@@ -12,6 +17,8 @@
       "MAINTENANCE": "<a:dh_maintenance_bot:1369989917756624987>",
       "UNKNOWN": "<a:dh_warning_bot:1369990072690020472>"
   },
+
+  "_COMMENTAIRE_IMAGES": "Images du bot Discord",
   "AUTHOR_ICON" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128",
   "THUMBNAIL_URL" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128"
 }
