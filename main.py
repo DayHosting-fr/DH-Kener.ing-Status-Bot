@@ -44,6 +44,20 @@ async def unload(ctx, extension):
     await ctx.send(f'{extension} unloaded', delete_after=5)
 
 @bot.event
+async def on_interaction(interaction: disnake.Interaction):
+    if interaction.type != disnake.InteractionType.component:
+        return
+
+    if interaction.data["custom_id"].startswith("validate_subscription_"):
+        user = interaction.user
+
+        # Modifier le message pour indiquer la prise en charge
+        await interaction.response.edit_message(
+            content=f"{interaction.message.content}\n✅ Pris en charge par {user.name}",
+            components=[]  # retire le bouton
+        )
+
+@bot.event
 async def on_ready():
     print(f'Bot is ready. Logged in as {bot.user}')
 bot.run(configs["DISCORD_BOT_TOKEN"])
