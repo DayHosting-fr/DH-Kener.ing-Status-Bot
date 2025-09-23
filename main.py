@@ -44,18 +44,20 @@ async def unload(ctx, extension):
     await ctx.send(f'{extension} unloaded', delete_after=5)
 
 @bot.event
-async def on_interaction(interaction: disnake.Interaction):
-    if interaction.type != disnake.InteractionType.component:
+async def on_raw_reaction_add(payload):
+    # Ignore les réactions du bot
+    if payload.user_id == bot.user.id:
         return
 
-    if interaction.data["custom_id"].startswith("validate_subscription_"):
-        user = interaction.user
+    # Vérifie que c'est la réaction "✅"
+    if str(payload.emoji) == "✅":
+        channel = bot.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+        user = bot.get_user(payload.user_id)
 
-        # Modifier le message pour indiquer la prise en charge
-        await interaction.response.edit_message(
-            content=f"{interaction.message.content}\n✅ Pris en charge par {user.name}",
-            components=[]  # retire le bouton
-        )
+        # Modifie le message pour indiquer que l'utilisateur s'en occupe
+        new_content = f"{message.content}\n✅ {user.name} s'occupe de cette tâche !"
+        await message.edit(content=new_content)
 
 @bot.event
 async def on_ready():
