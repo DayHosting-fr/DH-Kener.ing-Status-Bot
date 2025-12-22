@@ -23,5 +23,12 @@
   "THUMBNAIL_URL" : "https://cdn.discordapp.com/avatars/123456789012345678/abcdef1234567890.png?size=128",
 
   "_COMMENTAIRE_FILTERS": "Filtres pour les moniteurs",
-  "EXCLUDED_CATEGORIES": ["category_a_exclure", "autre_category_a_exclure"]
+  "EXCLUDED_CATEGORIES": ["category_a_exclure", "autre_category_a_exclure"],
+
+  "defcon_channel_name": "『💼』test",
+  "notify_roles": {
+    "1": 841790986014425118,
+    "2": 841790986014425118,
+    "3": 841790986014425118
+  }
 }

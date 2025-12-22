@@ -44,22 +44,6 @@ async def unload(ctx, extension):
     await ctx.send(f'{extension} unloaded', delete_after=5)
 
 @bot.event
-async def on_raw_reaction_add(payload):
-    # Ignore les réactions du bot
-    if payload.user_id == bot.user.id:
-        return
-
-    # Vérifie que c'est la réaction "✅"
-    if str(payload.emoji) == "✅":
-        channel = bot.get_channel(payload.channel_id)
-        message = await channel.fetch_message(payload.message_id)
-        user = bot.get_user(payload.user_id)
-
-        # Modifie le message pour indiquer que l'utilisateur s'en occupe
-        new_content = f"{message.content}\n✅ {user.name} s'occupe de cette tâche !"
-        await message.edit(content=new_content)
-
-@bot.event
 async def on_ready():
     print(f'Bot is ready. Logged in as {bot.user}')
 bot.run(configs["DISCORD_BOT_TOKEN"])
