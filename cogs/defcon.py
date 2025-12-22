@@ -157,7 +157,7 @@ class Defcon(commands.Cog):
 
         # Short log
         actor_txt = f" par {actor.mention}" if actor else ""
-        await channel.send(f"🔔 DEFCON changé : {old} → {level}{actor_txt} (source: {source})", delete_after=30)
+        await channel.send(f"🔔 DEFCON changé : {old} → {level}{actor_txt}", delete_after=5)
 
     # Commandes admin
     @commands.command(name="defcon_set", description="Définir le niveau DEFCON (admin only)")
