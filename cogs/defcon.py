@@ -50,40 +50,40 @@ class DefconView(disnake.ui.View):
     # Admin buttons (visible mais permission checked via decorator in command)
     @disnake.ui.button(label="DEFCON 5", style=disnake.ButtonStyle.success, custom_id="defcon_set_5")
     async def set_5(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 5)
 
     @disnake.ui.button(label="DEFCON 4", style=disnake.ButtonStyle.success, custom_id="defcon_set_4")
     async def set_4(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 4)
 
     @disnake.ui.button(label="DEFCON 3", style=disnake.ButtonStyle.primary, custom_id="defcon_set_3")
     async def set_3(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 3)
 
     @disnake.ui.button(label="DEFCON 2", style=disnake.ButtonStyle.danger, custom_id="defcon_set_2")
     async def set_2(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 2)
 
     @disnake.ui.button(label="DEFCON 1", style=disnake.ButtonStyle.danger, custom_id="defcon_set_1")
     async def set_1(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 1)
 
     # Public button (moved to the end)
     @disnake.ui.button(label="Plus d'infos", style=disnake.ButtonStyle.primary, custom_id="defcon_info")
     async def more_info(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer()
+        await inter.response.defer(ephemeral=True)
         level = self.cog.state.get("level", 5)
         info = DEFCON_EXPLAIN.get(level, {})
         embed = disnake.Embed(title=info.get("title", f"DEFCON {level}"),
                                description=info.get("desc", ""),
                                color=0x2F3136)
         embed.set_footer(text="DEFCON = DayHosting Emergency Framework for CONtinuity")
-        await inter.response.send_message(embed=embed, ephemeral=True)
+        await inter.edit_original_response(embed=embed)
 
 
 class Defcon(commands.Cog):
@@ -196,10 +196,10 @@ class Defcon(commands.Cog):
     async def handle_set_button(self, inter, level: int):
         # Only admins
         if not inter.author.guild_permissions.administrator:
-            await inter.edit_original_response(content="❌ Vous n'avez pas la permission.", ephemeral=True)
+            await inter.edit_original_response(content="❌ Vous n'avez pas la permission.")
             return
         await self.set_level(inter.guild, level, actor=inter.author, source="button")
-        await inter.edit_original_response(content=f"✅ DEFCON réglé à {level}.", ephemeral=True)
+        await inter.edit_original_response(content=f"✅ DEFCON réglé à {level}.")
 
     @commands.Cog.listener()
     async def on_ready(self):
