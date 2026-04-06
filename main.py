@@ -3,7 +3,7 @@ from disnake.ext import commands
 
 intents = disnake.Intents.all()
 
-with open('config.json') as f:
+with open('config.json', encoding="utf-8") as f:
     configs = json.load(f)
 
 activity = disnake.Activity(

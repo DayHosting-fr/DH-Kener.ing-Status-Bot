@@ -5,7 +5,7 @@ class ErrorHandler(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        with open('config.json') as f:
+        with open('config.json', encoding="utf-8") as f:
             self.configs = json.load(f)
 
     @commands.Cog.listener()

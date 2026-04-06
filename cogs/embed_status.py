@@ -5,7 +5,7 @@ from disnake.ext import commands, tasks
 from datetime import datetime
 
 # Charger la configuration depuis le fichier 'config.json'
-with open("config.json") as f:
+with open("config.json", encoding="utf-8") as f:
     configs = json.load(f)
 
 EXCLUDED_CATEGORIES = configs.get("EXCLUDED_CATEGORIES", [])
@@ -48,14 +48,18 @@ class KenerEmbed(commands.Cog):
         self.auto_update.start()
 
     async def fetch_data(self, endpoint, params=None):
-        # Fonction générique pour récupérer des données de l'API Kener
+        # Fonction générique pour récupérer des données de l'API Kener v4
         try:
-            response = requests.get(f"{API_URL}/api/{endpoint}", headers=HEADERS, params=params)
+            url = f"{API_URL}/api/v4/{endpoint}"
+            response = requests.get(url, headers=HEADERS, params=params)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"Error fetching {endpoint}: {e}")
-            return [] if "list" in endpoint else {}
+            # Retourner une liste vide pour les endpoints de type list, sinon un dictionnaire vide
+            if any(x in endpoint for x in ["monitors", "incidents", "pages", "maintenances"]):
+                return {}
+            return {}
 
     async def create_embed(self):
         # Fonction pour créer un embed avec les données de statut des serveurs
@@ -70,96 +74,119 @@ class KenerEmbed(commands.Cog):
         embed.description = ("Les statuts sur cette page sont actualisés toutes les 5 minutes. "
                              "\nUne version web est disponible [ici](https://status.dayhosting.fr)")
 
-        # Récupérer la liste des moniteurs
-        monitors = await self.fetch_data("monitor")
+        # Récupérer les données via les pages (v4)
+        data_pages = await self.fetch_data("pages")
+        pages = data_pages.get("pages", [])
+        
+        # LOGS POUR DÉBOGAGE
+        print(f"DEBUG: Nombre de pages récupérées : {len(pages)}")
 
-        # Si aucune donnée n'est récupérée pour les moniteurs, afficher un message d'erreur
-        if not monitors:
+        # Si aucune page n'est récupérée, afficher un message d'erreur
+        if not pages:
             embed = disnake.Embed(
                 title="Status des serveurs",
-                description=("Une erreur est survenue avec la connexion à notre serveur de status, "
-                             "merci de patienter quelques instants ou de contacter un <@&841787186558926898> - "
-                             "[Membre de l'équipe](https://discord.gg/6smzrQ6bN2)."),
+                description=("Une erreur est survenue lors de la récupération des pages de status, "
+                             "merci de patienter quelques instants."),
                 color=disnake.Color.red(),
                 timestamp=datetime.utcnow()
             )
-            embed.set_footer(text=datetime.utcnow())
             return embed
 
-        # Récupérer les incidents ouverts
-        incidents = await self.fetch_data("incident", {"status": "OPEN"})
+        # Récupérer tous les moniteurs pour faire le lien avec les tags
+        data_monitors = await self.fetch_data("monitors")
+        monitors_list = data_monitors.get("monitors", [])
+        monitor_map = {m["tag"]: m for m in monitors_list if "tag" in m}
+        print(f"DEBUG: Nombre de moniteurs globaux récupérés : {len(monitors_list)}")
 
-        # Créer une cartographie des moniteurs pour un accès rapide
-        monitor_map = {str(m["id"]): m for m in monitors}
-        monitor_tags = {m["tag"]: str(m["id"]) for m in monitors}
-        monitor_incidents = {str(m["id"]): [] for m in monitors}
+        # Récupérer les incidents pour les messages d'état
+        data_incidents = await self.fetch_data("incidents")
+        incidents = data_incidents.get("incidents", [])
 
-        # Organiser les incidents par moniteur
+        # Organiser les incidents par moniteur (tag)
+        monitor_incidents = {}
         for incident in incidents:
-            incident_id = incident["id"]
-            impacted = await self.fetch_data(f"incident/{incident_id}/monitors")
-            for mon in impacted:
-                tag = mon["monitor_tag"]
-                mon_id = monitor_tags.get(tag)
-                if mon_id:
-                    monitor_incidents[mon_id].append(incident)
+            impacted = incident.get("monitors", [])
+            for mon_impact in impacted:
+                tag = mon_impact.get("monitor_tag")
+                if tag:
+                    monitor_incidents.setdefault(tag, []).append(incident)
 
-        # Grouper les moniteurs par catégorie
-        groups = {}
-        for mon in monitors:
-            category_name = mon.get("category_name")
-            categories = [category_name] if isinstance(category_name, str) else category_name or ["Sans catégorie"]
-            for cat in categories:
-                groups.setdefault(cat, []).append(mon)
-
-        # Ajouter chaque groupe et ses moniteurs à l'embed
-        for group, mons in groups.items():
-            if group in EXCLUDED_CATEGORIES:
+        # Ajouter chaque page et ses moniteurs à l'embed
+        for page in pages:
+            page_title = page.get("page_title", "Sans titre")
+            # En v4, les moniteurs peuvent être des objets ou des tags
+            mons = page.get("monitors", [])
+            
+            # FILTRAGE PAR CATÉGORIE (Optionnel, basé sur config)
+            # Si on veut filtrer les pages qui pourraient être exclues via config
+            if page_title in EXCLUDED_CATEGORIES:
+                print(f"DEBUG: Page '{page_title}' exclue (config).")
                 continue
-            if group == "Home":
-                group = "🔔Général"
+
+            print(f"DEBUG: Page: {page_title} | Nombre de moniteurs : {len(mons)}")
+            if not mons:
+                continue
+                
             field_value = ""
             for mon in mons:
-                tag = mon["tag"]
-                if mon.get("category_name") in EXCLUDED_CATEGORIES:
-                    continue
-                mon_id = str(mon["id"])
-                name = mon["name"]
-                status = (await self.fetch_data("status", {"tag": tag})).get("status", "?").upper()
-
-                # Icône en fonction du statut
-                icon = configs["STATUS_ICONS"].get(status, configs["STATUS_ICONS"].get("UNKNOWN"))
-
-                # Ajouter des messages pour chaque incident lié au moniteur
-                incident_msgs = ""
-                for inc in monitor_incidents[mon_id]:
-                    if inc.get("state") == "RESOLVED" and inc.get("incident_type") != "MAINTENANCE":
-                        continue
-                    inc_type = inc.get("incident_type")
-                    reason = inc.get("title", "Raison inconnue")
-                    STATE = inc.get("state", "Incident").upper()
-                    if STATE == "INVESTIGATING":
-                        STATE_text = "⚠️ En cours d'investigation"
-                    elif STATE == "IDENTIFIED":
-                        STATE_text = "🔍 Identifié"
-                    elif STATE == "MONITORING":
-                        STATE_text = "👀 En cours de surveillance"
-                    elif inc_type == "MAINTENANCE":
-                        STATE_text = "🔧 En maintenance"
-
-                    if STATE != "RESOLVED":
-                        incident_msgs += f"\n   {STATE_text} - Raison : `{reason}`\n"
-
-                    if inc_type == "MAINTENANCE":
-                        end_time = inc.get("end_date_time")
-                        if end_time and datetime.utcnow().timestamp() > end_time:
-                            continue
-                        incident_msgs += f"\n   {STATE_text} - Raison : `{reason}`\n"
-                        icon = configs["STATUS_ICONS"].get("MAINTENANCE", configs["STATUS_ICONS"].get("UNKNOWN"))
+                try:
+                    # En v4, mon peut être un dict (v4 Swagger) ou un str (Kener v4 réel parfois)
+                    if isinstance(mon, dict):
+                        tag = mon.get("monitor_tag") or mon.get("tag")
+                    else:
+                        tag = str(mon)
                     
-                field_value += f"{icon} - {name}{incident_msgs}\n"
+                    if not tag:
+                        print(f"DEBUG:   - Moniteur ignoré : Pas de tag trouvé dans {mon}")
+                        continue
 
-            embed.add_field(name=group, value=field_value or "Aucun monitor", inline=False)
+                    # Récupérer les données complètes du moniteur depuis monitor_map
+                    # On privilégie monitor_map (vrai statut), sinon ce qu'on a dans 'mon'
+                    mon_data = monitor_map.get(tag) or (mon if isinstance(mon, dict) else {})
+                    
+                    name = mon_data.get("name") or tag
+                    raw_status = mon_data.get("status") or "UP"
+                    status = str(raw_status).upper()
+                    
+                    print(f"DEBUG:   - Moniteur: {name} (Tag: {tag}) | Status: {status}")
+                    
+                    # Icône en fonction du statut
+                    icon = configs["STATUS_ICONS"].get(status, configs["STATUS_ICONS"].get("UNKNOWN", "❓"))
+
+                    # Ajouter des messages pour chaque incident lié au moniteur
+                    incident_msgs = ""
+                    for inc in monitor_incidents.get(tag, []):
+                        try:
+                            if inc.get("state") == "RESOLVED" and inc.get("incident_type") != "MAINTENANCE":
+                                continue
+                            inc_type = inc.get("incident_type")
+                            reason = inc.get("title", "Raison inconnue")
+                            STATE = str(inc.get("state") or "Incident").upper()
+                            
+                            STATE_text = "Incident"
+                            if STATE == "INVESTIGATING":
+                                STATE_text = "⚠️ En cours d'investigation"
+                            elif STATE == "IDENTIFIED":
+                                STATE_text = "🔍 Identifié"
+                            elif STATE == "MONITORING":
+                                STATE_text = "👀 En cours de surveillance"
+                            elif inc_type == "MAINTENANCE":
+                                STATE_text = "🔧 En maintenance"
+
+                            if STATE != "RESOLVED" or inc_type == "MAINTENANCE":
+                                incident_msgs += f"\n   {STATE_text} - Raison : `{reason}`\n"
+                                if inc_type == "MAINTENANCE":
+                                    icon = configs["STATUS_ICONS"].get("MAINTENANCE", icon)
+                        except Exception as e_inc:
+                            print(f"DEBUG:     - Erreur incident pour {tag}: {e_inc}")
+                    
+                    field_value += f"{icon} - {name}{incident_msgs}\n"
+                except Exception as e_mon:
+                    print(f"DEBUG:   - Erreur moniteur {mon}: {e_mon}")
+
+            if field_value:
+                embed.add_field(name=page_title, value=field_value, inline=False)
+
 
         # Ajouter une légende pour les icônes
         embed.add_field(

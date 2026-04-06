@@ -50,33 +50,39 @@ class DefconView(disnake.ui.View):
     # Admin buttons (visible mais permission checked via decorator in command)
     @disnake.ui.button(label="DEFCON 5", style=disnake.ButtonStyle.success, custom_id="defcon_set_5")
     async def set_5(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 5)
 
     @disnake.ui.button(label="DEFCON 4", style=disnake.ButtonStyle.success, custom_id="defcon_set_4")
     async def set_4(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 4)
 
     @disnake.ui.button(label="DEFCON 3", style=disnake.ButtonStyle.primary, custom_id="defcon_set_3")
     async def set_3(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 3)
 
     @disnake.ui.button(label="DEFCON 2", style=disnake.ButtonStyle.danger, custom_id="defcon_set_2")
     async def set_2(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 2)
 
     @disnake.ui.button(label="DEFCON 1", style=disnake.ButtonStyle.danger, custom_id="defcon_set_1")
     async def set_1(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         await self.cog.handle_set_button(inter, 1)
 
     # Public button (moved to the end)
     @disnake.ui.button(label="Plus d'infos", style=disnake.ButtonStyle.primary, custom_id="defcon_info")
     async def more_info(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         level = self.cog.state.get("level", 5)
         info = DEFCON_EXPLAIN.get(level, {})
         embed = disnake.Embed(title=info.get("title", f"DEFCON {level}"),
@@ -89,11 +95,13 @@ class DefconView(disnake.ui.View):
 class Defcon(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._ready_done = False
         self.config = load_json(CONFIG_FILE, {})
         self.channel_name = self.config.get("defcon_channel_name", "『💼』test")
         self.notify_roles = {int(k): int(v) for k,v in self.config.get("notify_roles", {}).items()}
         self.state = load_json(STATE_FILE, {"level": 5, "message_id": None, "channel_id": None})
         self.view = None
+
         
 
     def build_embed(self, level: int) -> disnake.Embed:
@@ -203,8 +211,14 @@ class Defcon(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # Initialize the view now that we have an event loop
+        if getattr(self, '_ready_done', False):
+            return
+        self._ready_done = True
+
+
         self.view = DefconView(self)
+        self.bot.add_view(self.view)  # IMPORTANT pour boutons persistants
+
         for guild in self.bot.guilds:
             message_id = self.state.get("message_id")
             if message_id:
@@ -213,7 +227,13 @@ class Defcon(commands.Cog):
                     if channel:
                         await channel.fetch_message(message_id)
                 except:
-                    await self.set_level(guild, self.state.get("level",5), actor=None, source="startup")
+                    await self.set_level(
+                        guild,
+                        self.state.get("level", 5),
+                        actor=None,
+                        source="startup"
+                    )
+
 
 
 def setup(bot: commands.Bot):
