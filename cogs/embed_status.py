@@ -1,8 +1,11 @@
 import json
-import requests
+import aiohttp
+import asyncio
+import time
 import disnake
 from disnake.ext import commands, tasks
 from datetime import datetime
+
 
 # Charger la configuration depuis le fichier 'config.json'
 with open("config.json", encoding="utf-8") as f:
@@ -20,16 +23,28 @@ class KenerEmbed(commands.Cog):
         self.bot = bot
         self.channel = None
         self.message = None
+        self.session = None
+
+    def cog_unload(self):
+        # Fermer la session aiohttp lors du déchargement du cog
+        if self.session and not self.session.closed:
+            asyncio.create_task(self.session.close())
+
 
     @commands.Cog.listener()
     async def on_ready(self):
         # Attente que le bot soit prêt avant de configurer le canal et le message
         await self.bot.wait_until_ready()
+        
+        if not self.session:
+            self.session = aiohttp.ClientSession(headers=HEADERS)
+
         self.channel = self.bot.get_channel(int(CHANNEL_ID))
         
         if not self.channel:
             print(f"Channel ID {CHANNEL_ID} not found.")
             return
+
 
         # Tentative de récupérer le message existant avec l'ID
         try:
@@ -48,18 +63,31 @@ class KenerEmbed(commands.Cog):
         self.auto_update.start()
 
     async def fetch_data(self, endpoint, params=None):
-        # Fonction générique pour récupérer des données de l'API Kener v4
+        # Fonction générique pour récupérer des données de l'API Kener v4 via aiohttp
+        if not self.session:
+            self.session = aiohttp.ClientSession(headers=HEADERS)
+            
         try:
             url = f"{API_URL}/api/v4/{endpoint}"
-            response = requests.get(url, headers=HEADERS, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
+            async with self.session.get(url, params=params) as response:
+                if response.status == 404:
+                    return {}
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
             print(f"Error fetching {endpoint}: {e}")
-            # Retourner une liste vide pour les endpoints de type list, sinon un dictionnaire vide
-            if any(x in endpoint for x in ["monitors", "incidents", "pages", "maintenances"]):
-                return {}
             return {}
+
+    async def fetch_latest_data_point(self, monitor_tag):
+        # Récupère le dernier point de données pour obtenir le vrai statut (UP/DOWN)
+        now = int(time.time() // 60 * 60)
+        # On essaie la minute actuelle puis la minute précédente
+        for ts in [now, now - 60]:
+            data = await self.fetch_data(f"monitors/{monitor_tag}/data/{ts}")
+            if data and data.get("data"):
+                return data.get("data")
+        return None
+
 
     async def create_embed(self):
         # Fonction pour créer un embed avec les données de statut des serveurs
@@ -111,16 +139,26 @@ class KenerEmbed(commands.Cog):
                 if tag:
                     monitor_incidents.setdefault(tag, []).append(incident)
 
+        # Pré-charger les status réels pour tous les moniteurs en parallèle
+        monitor_tags = []
+        for page in pages:
+            if page.get("page_title") in EXCLUDED_CATEGORIES:
+                continue
+            for mon in page.get("monitors", []):
+                tag = (mon.get("monitor_tag") or mon.get("tag")) if isinstance(mon, dict) else str(mon)
+                if tag and tag not in monitor_tags:
+                    monitor_tags.append(tag)
+        
+        print(f"DEBUG: Récupération des data points pour {len(monitor_tags)} moniteurs...")
+        data_points_results = await asyncio.gather(*[self.fetch_latest_data_point(tag) for tag in monitor_tags])
+        real_time_status = {tag: dp.get("status") for tag, dp in zip(monitor_tags, data_points_results) if dp}
+
         # Ajouter chaque page et ses moniteurs à l'embed
         for page in pages:
             page_title = page.get("page_title", "Sans titre")
-            # En v4, les moniteurs peuvent être des objets ou des tags
             mons = page.get("monitors", [])
             
-            # FILTRAGE PAR CATÉGORIE (Optionnel, basé sur config)
-            # Si on veut filtrer les pages qui pourraient être exclues via config
             if page_title in EXCLUDED_CATEGORIES:
-                print(f"DEBUG: Page '{page_title}' exclue (config).")
                 continue
 
             print(f"DEBUG: Page: {page_title} | Nombre de moniteurs : {len(mons)}")
@@ -130,28 +168,26 @@ class KenerEmbed(commands.Cog):
             field_value = ""
             for mon in mons:
                 try:
-                    # En v4, mon peut être un dict (v4 Swagger) ou un str (Kener v4 réel parfois)
                     if isinstance(mon, dict):
                         tag = mon.get("monitor_tag") or mon.get("tag")
                     else:
                         tag = str(mon)
                     
                     if not tag:
-                        print(f"DEBUG:   - Moniteur ignoré : Pas de tag trouvé dans {mon}")
                         continue
 
-                    # Récupérer les données complètes du moniteur depuis monitor_map
-                    # On privilégie monitor_map (vrai statut), sinon ce qu'on a dans 'mon'
                     mon_data = monitor_map.get(tag) or (mon if isinstance(mon, dict) else {})
                     
                     name = mon_data.get("name") or tag
-                    raw_status = mon_data.get("status") or "UP"
-                    status = str(raw_status).upper()
+                    
+                    # Utiliser le statut réel du data point si disponible, sinon le statut global
+                    status = real_time_status.get(tag) or mon_data.get("status") or "UP"
+                    status = str(status).upper()
                     
                     print(f"DEBUG:   - Moniteur: {name} (Tag: {tag}) | Status: {status}")
                     
-                    # Icône en fonction du statut
                     icon = configs["STATUS_ICONS"].get(status, configs["STATUS_ICONS"].get("UNKNOWN", "❓"))
+
 
                     # Ajouter des messages pour chaque incident lié au moniteur
                     incident_msgs = ""
