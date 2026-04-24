@@ -1,6 +1,11 @@
 import disnake, os, json, traceback, asyncio
 from disnake.ext import commands, tasks
 from utils.database import Database
+from datetime import datetime, timedelta
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 intents = disnake.Intents.all()
 
@@ -98,12 +103,70 @@ async def on_slash_command_error(inter, error):
     else:
         await inter.followup.send(f"Une erreur est survenue : {error}", ephemeral=True)
 
+def generate_self_signed_cert(cert_path, key_path):
+    """Generates a self-signed certificate for local HTTPS development."""
+    print("Generating self-signed SSL certificate...")
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "FR"),
+        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "France"),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, "Chancenay"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DayHosting"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "node02.dayhosting.fr"),
+    ])
+    cert = x509.CertificateBuilder().subject_name(
+        subject
+    ).issuer_name(
+        issuer
+    ).public_key(
+        key.public_key()
+    ).serial_number(
+        x509.random_serial_number()
+    ).not_valid_before(
+        datetime.utcnow()
+    ).not_valid_after(
+        datetime.utcnow() + timedelta(days=365)
+    ).add_extension(
+        x509.SubjectAlternativeName([x509.DNSName("node02.dayhosting.fr")]),
+        critical=False,
+    ).sign(key, hashes.SHA256())
+
+    with open(cert_path, "wb") as f:
+        f.write(cert.public_bytes(serialization.Encoding.PEM))
+    with open(key_path, "wb") as f:
+        f.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ))
+    print(f"SSL Certificates generated: {cert_path}, {key_path}")
+
 async def main():
     # Start Dashboard
     from dashboard.main import app as dashboard_app
     import uvicorn
+    import os
     
-    config_uvicorn = uvicorn.Config(dashboard_app, host="0.0.0.0", port=configs['DASHBOARD']['PORT'], log_level="info")
+    # SSL Check
+    ssl_cert = "cert.pem"
+    ssl_key = "key.pem"
+    
+    if not os.path.exists(ssl_cert) or not os.path.exists(ssl_key):
+        generate_self_signed_cert(ssl_cert, ssl_key)
+        
+    print("Starting dashboard in HTTPS mode.")
+    ssl_args = {
+        "ssl_certfile": ssl_cert,
+        "ssl_keyfile": ssl_key
+    }
+
+    config_uvicorn = uvicorn.Config(
+        dashboard_app, 
+        host="0.0.0.0", 
+        port=configs['DASHBOARD']['PORT'], 
+        log_level="info",
+        **ssl_args
+    )
     server = uvicorn.Server(config_uvicorn)
     
     # Run both

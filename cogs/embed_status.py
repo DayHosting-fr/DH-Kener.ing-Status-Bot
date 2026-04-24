@@ -4,7 +4,9 @@ import asyncio
 import time
 import disnake
 from disnake.ext import commands, tasks
-from datetime import datetime
+from datetime import datetime, timezone
+import traceback
+from utils.database import Database
 
 
 # Charger la configuration depuis le fichier 'config.json'
@@ -31,36 +33,38 @@ class KenerEmbed(commands.Cog):
             asyncio.create_task(self.session.close())
 
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        # Attente que le bot soit prêt avant de configurer le canal et le message
-        await self.bot.wait_until_ready()
-        
+    async def cog_load(self):
+        """Called when the cog is loaded."""
         if not self.session:
             self.session = aiohttp.ClientSession(headers=HEADERS)
-
-        self.channel = self.bot.get_channel(int(CHANNEL_ID))
         
-        if not self.channel:
-            print(f"Channel ID {CHANNEL_ID} not found.")
-            return
+        self.channel = self.bot.get_channel(int(CHANNEL_ID))
+        if self.channel:
+            try:
+                import os
+                if os.path.exists("message_id.txt"):
+                    with open("message_id.txt", "r") as f:
+                        msg_id = int(f.read().strip())
+                        self.message = await self.channel.fetch_message(msg_id)
+            except Exception as e:
+                print(f"Could not fetch existing message: {e}")
+            
+            if not self.message:
+                try:
+                    embed = await self.create_embed()
+                    self.message = await self.channel.send(embed=embed)
+                    with open("message_id.txt", "w") as f:
+                        f.write(str(self.message.id))
+                except Exception as e:
+                    print(f"Failed to create initial message: {e}")
 
+        if not self.auto_update.is_running():
+            self.auto_update.start()
 
-        # Tentative de récupérer le message existant avec l'ID
-        try:
-            with open("message_id.txt", "r") as f:
-                msg_id = int(f.read().strip())
-                self.message = await self.channel.fetch_message(msg_id)
-        except Exception:
-            # Si le message n'existe pas, on crée un nouveau message
-            embed = await self.create_embed()
-            self.message = await self.channel.send(embed=embed)
-            # Sauvegarder l'ID du message pour les mises à jour futures
-            with open("message_id.txt", "w") as f:
-                f.write(str(self.message.id))
-
-        # Démarrer le processus de mise à jour automatique toutes les minutes
-        self.auto_update.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        # Ensure initialization even if loaded before on_ready
+        await self.cog_load()
 
     async def fetch_data(self, endpoint, params=None):
         # Fonction générique pour récupérer des données de l'API Kener v4 via aiohttp
@@ -242,9 +246,19 @@ class KenerEmbed(commands.Cog):
     @tasks.loop(seconds=60)
     async def auto_update(self):
         # Mise à jour automatique toutes les 60 secondes
-        if self.message:
-            embed = await self.create_embed()
-            await self.message.edit(embed=embed)
+        try:
+            if self.message:
+                embed = await self.create_embed()
+                await self.message.edit(embed=embed)
+            else:
+                # Try to recover message if lost
+                await self.cog_load()
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            print(f"Error in auto_update loop: {e}")
+            # Log to DB
+            query = "INSERT INTO bot_crashes (error_type, error_message, stack_trace, cog_name) VALUES (%s, %s, %s, %s)"
+            await Database.execute(query, ("TaskLoopError", str(e), error_trace, "KenerEmbed"))
 
     @auto_update.before_loop
     async def before_auto(self):

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Statistiques{% endblock %}
+{% block page_title %}Analyses du Serveur{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Membres Actuels</h3>
+        <div class="value" id="current-members">...</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Crashs</h3>
+        <div class="value" id="total-crashes">...</div>
+    </div>
+</div>
+
+<section class="content-section" style="margin-top: 2rem;">
+    <div class="section-header">
+        <h2>Historique des Crashs (Dernières 24h)</h2>
+    </div>
+    <div id="crashes-list">
+        <!-- Rempli par JS -->
+    </div>
+</section>
+
+<script>
+    async function loadStats() {
+        try {
+            const statsResp = await fetch('/api/stats');
+            const statsData = await statsResp.json();
+            document.getElementById('current-members').innerText = "Vérification...";
+            document.getElementById('total-crashes').innerText = statsData.total_crashes;
+
+            const crashResp = await fetch('/api/health');
+            const healthData = await crashResp.json();
+            
+            // Simple display for now
+            const list = document.getElementById('crashes-list');
+            if (healthData.crashes_last_12h === 0) {
+                list.innerHTML = "<p style='color: var(--success);'>Aucun crash détecté dans les dernières 12h. Stable !</p>";
+            } else {
+                list.innerHTML = `<p style='color: var(--danger);'>${healthData.crashes_last_12h} crashs détectés. Vérifiez les logs !</p>`;
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    loadStats();
+</script>
+{% endblock %}

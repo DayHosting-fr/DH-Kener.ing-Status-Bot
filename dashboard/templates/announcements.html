@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Annonces{% endblock %}
+{% block page_title %}Gestion des Annonces{% endblock %}
+
+{% block content %}
+<section class="content-section">
+    <div class="section-header">
+        <h2>Messages Programmés</h2>
+        <button class="btn-primary" onclick="showAddModal()">+ Nouvelle Annonce</button>
+    </div>
+    <div id="announcements-table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Salon ID</th>
+                    <th>Message</th>
+                    <th>Date / Heure</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody id="ann-list">
+                <!-- Rempli par JS -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Modal pour nouvelle annonce -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <h2>Programmer une Annonce</h2>
+        <form id="annForm">
+            <div class="form-group">
+                <label>ID du Salon</label>
+                <input type="number" id="channel_id" required placeholder="Ex: 123456789">
+            </div>
+            <div class="form-group">
+                <label>Message / Contenu</label>
+                <textarea id="message" rows="4" required placeholder="Votre message..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Date et Heure</label>
+                <input type="datetime-local" id="scheduled_at" required>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn-primary">Programmer</button>
+                <button type="button" class="btn-secondary" onclick="closeModal()">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+
+    async function loadAnnouncements() {
+        try {
+            const annResp = await fetch('/api/announcements');
+            const annData = await annResp.json();
+            const list = document.getElementById('ann-list');
+            list.innerHTML = annData.map(a => `
+                <tr>
+                    <td><code>${a.channel_id}</code></td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.message || 'Embed Content'}</td>
+                    <td>${new Date(a.scheduled_at).toLocaleString()}</td>
+                    <td><span class="badge ${a.sent ? 'sent' : 'pending'}">${a.sent ? 'Envoyé' : 'En attente'}</span></td>
+                </tr>
+            `).join('');
+        } catch(e) { console.error(e); }
+    }
+
+    document.getElementById('annForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const localDate = new Date(document.getElementById('scheduled_at').value);
+        // Convert to ISO string and take the part before the Z
+        const utcDate = localDate.toISOString().replace('T', ' ').substring(0, 16);
+        
+        const data = {
+            channel_id: document.getElementById('channel_id').value,
+            message: document.getElementById('message').value,
+            scheduled_at: utcDate
+        };
+        const resp = await fetch('/api/announcements', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            closeModal();
+            loadAnnouncements();
+        } else {
+            alert("Erreur lors de la programmation");
+        }
+    };
+
+    setInterval(loadAnnouncements, 15000);
+    loadAnnouncements();
+</script>
+{% endblock %}

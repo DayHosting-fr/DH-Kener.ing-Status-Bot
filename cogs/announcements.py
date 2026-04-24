@@ -15,7 +15,7 @@ class Announcements(commands.Cog):
     @tasks.loop(minutes=1)
     async def check_announcements(self):
         """Checks DB for pending announcements and sends them."""
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         query = "SELECT id, channel_id, message, embed_json FROM scheduled_announcements WHERE scheduled_at <= %s AND sent = FALSE"
         rows = await Database.execute(query, (now,))
         

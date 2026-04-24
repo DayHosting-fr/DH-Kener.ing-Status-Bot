@@ -1,64 +1,38 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | DH-Status</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-</head>
-<body>
-    <div class="background-glow"></div>
-    
-    <nav>
-        <div class="logo">DH-STATUS</div>
-        <div class="user-tag">
-            <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png" alt="Avatar">
-            <span>{{ user.username }}#{{ user.discriminator }}</span>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <main>
-        <div class="stats-grid">
-            <div class="stat-card" id="health-card">
-                <h3>État du Bot</h3>
-                <div class="value" id="health-status">Chargement...</div>
-            </div>
-            <div class="stat-card">
-                <h3>Annonces en attente</h3>
-                <div class="value" id="pending-ann">0</div>
-            </div>
-            <div class="stat-card">
-                <h3>Crashs récents (12h)</h3>
-                <div class="value" id="crash-count">0</div>
-            </div>
-        </div>
+{% block title %}Vue d'ensemble{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
 
-        <section class="content-section">
-            <div class="section-header">
-                <h2>Annonces Programmées</h2>
-                <button class="btn-primary" onclick="showAddModal()">+ Nouvelle Annonce</button>
-            </div>
-            <div id="announcements-table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Salon</th>
-                            <th>Date / Heure</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ann-list">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card" id="health-card">
+        <h3>État du Bot</h3>
+        <div class="value" id="health-status">Chargement...</div>
+    </div>
+    <div class="stat-card">
+        <h3>Annonces en attente</h3>
+        <div class="value" id="pending-ann">0</div>
+    </div>
+    <div class="stat-card">
+        <h3>Crashs récents (12h)</h3>
+        <div class="value" id="crash-count">0</div>
+    </div>
+</div>
 
-    <script>
-        async function updateStats() {
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Commandes Exécutées</h3>
+        <div class="value">Coming Soon</div>
+    </div>
+    <div class="stat-card">
+        <h3>Uptime</h3>
+        <div class="value">99.9%</div>
+    </div>
+</div>
+
+<script>
+    async function updateHomeStats() {
+        try {
             const healthResp = await fetch('/api/health');
             const healthData = await healthResp.json();
             
@@ -69,10 +43,10 @@
             document.getElementById('health-card').className = `stat-card health-${healthData.status}`;
             document.getElementById('crash-count').innerText = healthData.crashes_last_12h;
             document.getElementById('pending-ann').innerText = statsData.pending_announcements;
-        }
+        } catch(e) { console.error(e); }
+    }
 
-        setInterval(updateStats, 10000);
-        updateStats();
-    </script>
-</body>
-</html>
+    setInterval(updateHomeStats, 10000);
+    updateHomeStats();
+</script>
+{% endblock %}

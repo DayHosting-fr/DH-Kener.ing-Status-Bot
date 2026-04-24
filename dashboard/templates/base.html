@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} | DH-Status</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-glow"></div>
+    
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">DH-STATUS</div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item {% if active_page == 'home' %}active{% endif %}">
+                    <i class="fas fa-home"></i> <span>Vue d'ensemble</span>
+                </a>
+                <a href="/announcements" class="nav-item {% if active_page == 'announcements' %}active{% endif %}">
+                    <i class="fas fa-bullhorn"></i> <span>Annonces</span>
+                </a>
+                <a href="/logs" class="nav-item {% if active_page == 'logs' %}active{% endif %}">
+                    <i class="fas fa-clipboard-list"></i> <span>Logs Staff</span>
+                </a>
+                <a href="/stats" class="nav-item {% if active_page == 'stats' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i> <span>Statistiques</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png" alt="Avatar">
+                    <div class="user-details">
+                        <span class="username">{{ user.username }}</span>
+                        <span class="role">Administrateur</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="top-bar">
+                <h1>{% block page_title %}{% endblock %}</h1>
+                <div class="status-indicator">
+                    <span class="dot" id="global-status-dot"></span>
+                    <span id="global-status-text">Synchronisation...</span>
+                </div>
+            </header>
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        async function checkGlobalHealth() {
+            const resp = await fetch('/api/health');
+            const data = await resp.json();
+            const dot = document.getElementById('global-status-dot');
+            const text = document.getElementById('global-status-text');
+            
+            text.innerText = `Bot: ${data.status}`;
+            dot.className = `dot ${data.status.toLowerCase()}`;
+        }
+        setInterval(checkGlobalHealth, 30000);
+        checkGlobalHealth();
+    </script>
+</body>
+</html>

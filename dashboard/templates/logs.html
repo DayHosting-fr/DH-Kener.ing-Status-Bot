@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Logs Staff{% endblock %}
+{% block page_title %}Historique des Actions Staff{% endblock %}
+
+{% block content %}
+<section class="content-section">
+    <div class="section-header">
+        <h2>Actions de Modération</h2>
+        <p style="color: var(--text-dim);">Toutes les actions de bannissement, mute et kick sont enregistrées ici.</p>
+    </div>
+    <div id="logs-table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Staff</th>
+                    <th>Action</th>
+                    <th>Détails</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="logs-list">
+                <!-- Rempli par JS -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+    async function loadLogs() {
+        try {
+            const resp = await fetch('/api/logs');
+            const data = await resp.json();
+            const list = document.getElementById('logs-list');
+            list.innerHTML = data.map(l => `
+                <tr>
+                    <td><code>${l.staff_id}</code></td>
+                    <td><span class="badge ${l.action.toLowerCase()}">${l.action}</span></td>
+                    <td>${l.details}</td>
+                    <td>${new Date(l.timestamp).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        } catch(e) { console.error(e); }
+    }
+
+    loadLogs();
+</script>
+
+<style>
+    .badge.ban { background: rgba(255, 77, 77, 0.1); color: var(--danger); }
+    .badge.mute { background: rgba(255, 204, 0, 0.1); color: #ffcc00; }
+    .badge.unban, .badge.unmute { background: rgba(0, 255, 136, 0.1); color: var(--success); }
+</style>
+{% endblock %}
