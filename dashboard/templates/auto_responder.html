@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Auto-Répondeur{% endblock %}
+{% block page_title %}Réponses Automatiques{% endblock %}
+
+{% block content %}
+<div class="responder-container" style="display: flex; gap: 20px;">
+    <section class="content-section" style="flex: 3;">
+        <div class="section-header">
+            <h2>Règles de Réponses</h2>
+            <button class="btn-primary" onclick="showAddModal()">+ Ajouter une règle</button>
+        </div>
+        <div id="responses-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mot-clé / Trigger</th>
+                        <th>Réponse</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="responses-list">
+                    <!-- Rempli par JS -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <aside class="helper-sidebar" style="flex: 1;">
+        <section class="helper-section">
+            <h3>Salons Exclus</h3>
+            <p style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 10px;">Le bot ne répondra pas dans ces salons.</p>
+            <div id="exclusions-list" class="helper-list">
+                <!-- Rempli par JS -->
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <select id="exclude_channel_select">
+                    <option value="">Ajouter un salon...</option>
+                </select>
+                <button class="btn-primary" onclick="addExclusion()" style="width: 100%; margin-top: 5px;">Exclure</button>
+            </div>
+        </section>
+    </aside>
+</div>
+
+<!-- Modal -->
+<div id="resModal" class="modal">
+    <div class="modal-content">
+        <h2>Ajouter une réponse automatique</h2>
+        <form id="resForm">
+            <div class="form-group">
+                <label>Mot-clé déclencheur (Trigger)</label>
+                <input type="text" id="trigger" required placeholder="Ex: salut">
+            </div>
+            <div class="form-group">
+                <label>Réponse du bot</label>
+                <textarea id="response_text" rows="4" required placeholder="Ex: Bonjour ! Comment puis-je t'aider ?"></textarea>
+            </div>
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="is_exact" style="width: auto;">
+                    <label for="is_exact" style="margin-bottom: 0;">Correspondance exacte</label>
+                </div>
+                <small style="display: block; margin-top: 5px; opacity: 0.7;">Si coché, le bot ne répondra que si le message est exactement le mot-clé.</small>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Annuler</button>
+                <button type="submit" class="btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .helper-sidebar {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 15px;
+        align-self: flex-start;
+    }
+    .helper-section h3 { font-size: 0.9rem; margin-bottom: 10px; color: var(--accent); }
+    .helper-list { display: flex; flex-direction: column; gap: 5px; }
+    .exclusion-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255,255,255,0.05);
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 0.8rem;
+    }
+    .btn-remove {
+        background: transparent;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    let allChannels = [];
+    let currentExclusions = [];
+
+    async function init() {
+        await loadChannels();
+        await loadExclusions();
+        await loadResponses();
+    }
+
+    async function loadChannels() {
+        const resp = await fetch('/api/guild/channels');
+        allChannels = await resp.json();
+        const select = document.getElementById('exclude_channel_select');
+        select.innerHTML = '<option value="">Ajouter un salon...</option>' + 
+            allChannels.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
+    }
+
+    async function loadExclusions() {
+        const resp = await fetch('/api/auto-responses/exclusions');
+        currentExclusions = await resp.json();
+        const list = document.getElementById('exclusions-list');
+        list.innerHTML = currentExclusions.map(id => {
+            const chan = allChannels.find(c => c.id == id);
+            return `
+                <div class="exclusion-item">
+                    <span># ${chan ? chan.name : id}</span>
+                    <button class="btn-remove" onclick="removeExclusion('${id}')">&times;</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function addExclusion() {
+        const val = document.getElementById('exclude_channel_select').value;
+        if (!val || currentExclusions.includes(val) || currentExclusions.includes(parseInt(val))) return;
+        currentExclusions.push(parseInt(val));
+        await saveExclusions();
+    }
+
+    async function removeExclusion(id) {
+        currentExclusions = currentExclusions.filter(ex => ex != id);
+        await saveExclusions();
+    }
+
+    async function saveExclusions() {
+        await fetch('/api/auto-responses/exclusions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({channels: currentExclusions})
+        });
+        loadExclusions();
+    }
+
+    async function loadResponses() {
+        try {
+            const resp = await fetch('/api/auto-responses');
+            const data = await resp.json();
+            const list = document.getElementById('responses-list');
+            list.innerHTML = data.map(r => `
+                <tr>
+                    <td><code>${r.trigger}</code></td>
+                    <td>${r.response}</td>
+                    <td><span class="badge ${r.is_exact ? 'pending' : 'sent'}">${r.is_exact ? 'Exact' : 'Contient'}</span></td>
+                    <td>
+                        <button class="btn-icon btn-delete" onclick="deleteResponse(${r.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch(e) { console.error(e); }
+    }
+
+    function showAddModal() {
+        document.getElementById('resForm').reset();
+        document.getElementById('resModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('resModal').style.display = 'none';
+    }
+
+    async function deleteResponse(id) {
+        if (!confirm("Supprimer cette règle ?")) return;
+        await fetch(`/api/auto-responses/${id}`, { method: 'DELETE' });
+        loadResponses();
+    }
+
+    document.getElementById('resForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const data = {
+            trigger: document.getElementById('trigger').value,
+            response: document.getElementById('response_text').value,
+            is_exact: document.getElementById('is_exact').checked
+        };
+        const resp = await fetch('/api/auto-responses', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            closeModal();
+            loadResponses();
+        }
+    };
+
+    init();
+</script>
+{% endblock %}

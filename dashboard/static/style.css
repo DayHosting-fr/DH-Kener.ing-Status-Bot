@@ -6,6 +6,7 @@
 }
 
 :root {
+    /* Dark Theme (Default) */
     --bg-dark: #0a0b10;
     --card-bg: rgba(255, 255, 255, 0.05);
     --accent: #5865F2; /* Discord Blurple */
@@ -14,6 +15,27 @@
     --text-dim: #a0a0a0;
     --danger: #ff4d4d;
     --success: #00ff88;
+    --sidebar-bg: rgba(255, 255, 255, 0.02);
+    --modal-bg: #1a1b23;
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --border-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-dark: #f0f2f5;
+        --card-bg: rgba(255, 255, 255, 0.8);
+        --accent: #5865F2;
+        --accent-glow: rgba(88, 101, 242, 0.1);
+        --text-main: #1a1a1a;
+        --text-dim: #4b4b4b;
+        --danger: #d93025;
+        --success: #188038;
+        --sidebar-bg: rgba(0, 0, 0, 0.03);
+        --modal-bg: #ffffff;
+        --input-bg: #f8f9fa;
+        --border-color: rgba(0, 0, 0, 0.1);
+    }
 }
 
 body {
@@ -43,9 +65,9 @@ body {
 /* Sidebar */
 .sidebar {
     width: 280px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--sidebar-bg);
     backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     position: sticky;
@@ -272,12 +294,12 @@ td {
 }
 
 .modal-content {
-    background: #1a1b23;
+    background: var(--modal-bg);
     padding: 3rem;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
     width: 100%;
-    max-width: 500px;
+    max-width: 600px;
 }
 
 .form-group {
@@ -290,13 +312,13 @@ td {
     color: var(--text-dim);
 }
 
-.form-group input, .form-group textarea {
+.form-group input, .form-group textarea, .form-group select {
     width: 100%;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
     padding: 12px;
     border-radius: 10px;
-    color: white;
+    color: var(--text-main);
 }
 
 .btn-secondary {

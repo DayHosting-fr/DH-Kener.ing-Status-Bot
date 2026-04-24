@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Console Live{% endblock %}
+{% block page_title %}Console en Direct{% endblock %}
+
+{% block content %}
+<section class="content-section">
+    <div class="section-header">
+        <h2>Logs du Système</h2>
+        <div class="console-actions">
+            <button class="btn-secondary" onclick="clearConsole()">Effacer l'écran</button>
+            <div class="auto-scroll-toggle">
+                <input type="checkbox" id="auto-scroll" checked>
+                <label for="auto-scroll">Auto-scroll</label>
+            </div>
+        </div>
+    </div>
+    <div id="console-output" class="console-box">
+        <div class="log-entry system">Initialisation de la console...</div>
+    </div>
+</section>
+
+<style>
+    .console-box {
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: 'Consolas', 'Monaco', monospace;
+        padding: 20px;
+        border-radius: 8px;
+        height: 600px;
+        overflow-y: auto;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .log-entry {
+        margin-bottom: 4px;
+        border-left: 3px solid transparent;
+        padding-left: 10px;
+    }
+    .log-entry.INFO { border-left-color: #3498db; }
+    .log-entry.WARNING { border-left-color: #f1c40f; color: #f1c40f; }
+    .log-entry.ERROR { border-left-color: #e74c3c; color: #e74c3c; }
+    .log-entry.DEBUG { border-left-color: #95a5a6; opacity: 0.7; }
+    .log-entry.system { color: #2ecc71; font-style: italic; }
+    
+    .console-actions {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .auto-scroll-toggle {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.8rem;
+    }
+</style>
+
+<script>
+    const consoleOutput = document.getElementById('console-output');
+    const autoScrollCheck = document.getElementById('auto-scroll');
+    let lastLogCount = 0;
+
+    async function fetchLogs() {
+        try {
+            const resp = await fetch('/api/console/logs');
+            const logs = await resp.json();
+            
+            if (logs.length > lastLogCount || logs.length < lastLogCount) {
+                renderLogs(logs);
+                lastLogCount = logs.length;
+            }
+        } catch (e) {
+            console.error("Failed to fetch logs:", e);
+        }
+    }
+
+    function renderLogs(logs) {
+        // Simple strategy: re-render all for now, or just append new ones.
+        // Given we only keep 100 logs, re-rendering is fine.
+        consoleOutput.innerHTML = logs.map(log => `
+            <div class="log-entry ${log.level}">
+                <span style="opacity: 0.5;">[${new Date(log.timestamp).toLocaleTimeString()}]</span> ${escapeHtml(log.message)}
+            </div>
+        `).join('');
+
+        if (autoScrollCheck.checked) {
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+    }
+
+    function clearConsole() {
+        consoleOutput.innerHTML = '<div class="log-entry system">Console effacée par l\'utilisateur.</div>';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    setInterval(fetchLogs, 2000);
+    fetchLogs();
+</script>
+{% endblock %}

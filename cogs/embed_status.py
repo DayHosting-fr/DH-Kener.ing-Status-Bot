@@ -260,6 +260,30 @@ class KenerEmbed(commands.Cog):
             query = "INSERT INTO bot_crashes (error_type, error_message, stack_trace, cog_name) VALUES (%s, %s, %s, %s)"
             await Database.execute(query, ("TaskLoopError", str(e), error_trace, "KenerEmbed"))
 
+    @commands.command(name="status_refresh")
+    @commands.has_permissions(administrator=True)
+    async def status_refresh(self, ctx):
+        """Force l'actualisation de l'embed de statut."""
+        try:
+            embed = await self.create_embed()
+            if self.message:
+                await self.message.edit(embed=embed)
+                await ctx.send("✅ L'embed de statut a été actualisé avec succès !", delete_after=10)
+            else:
+                # Si le message n'est pas trouvé, on essaie de le recharger/recréer via cog_load
+                await self.cog_load()
+                if self.message:
+                    await ctx.send("⚠️ Le message était manquant mais a été recréé et actualisé.", delete_after=10)
+                else:
+                    await ctx.send("❌ Impossible de trouver ou de créer le message de statut.", delete_after=10)
+        except Exception as e:
+            await ctx.send(f"❌ Une erreur est survenue : {e}", delete_after=10)
+        finally:
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
     @auto_update.before_loop
     async def before_auto(self):
         # Attente que le bot soit prêt avant de démarrer la boucle

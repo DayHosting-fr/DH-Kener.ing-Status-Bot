@@ -1,4 +1,4 @@
-import disnake, os, json, traceback, asyncio
+import disnake, os, json, traceback, asyncio, logging
 from disnake.ext import commands, tasks
 from utils.database import Database
 from datetime import datetime, timedelta
@@ -6,6 +6,28 @@ from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+
+# Setup Logging for Dashboard
+class DashboardLogHandler(logging.Handler):
+    def __init__(self, capacity=100):
+        super().__init__()
+        self.capacity = capacity
+        self.logs = []
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "level": record.levelname,
+            "message": log_entry
+        })
+        if len(self.logs) > self.capacity:
+            self.logs.pop(0)
+
+log_handler = DashboardLogHandler()
+log_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logging.getLogger().addHandler(log_handler)
+logging.getLogger().setLevel(logging.INFO)
 
 intents = disnake.Intents.all()
 
@@ -144,6 +166,9 @@ def generate_self_signed_cert(cert_path, key_path):
 async def main():
     # Start Dashboard
     from dashboard.main import app as dashboard_app
+    import dashboard.main as dashboard_module
+    dashboard_module.bot = bot
+    dashboard_module.log_handler = log_handler
     import uvicorn
     import os
     

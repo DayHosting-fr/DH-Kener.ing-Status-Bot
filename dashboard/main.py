@@ -6,12 +6,50 @@ from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import json, httpx, datetime
 from pydantic import BaseModel
+from typing import List
 from utils.database import Database
+import os
+
+# Dashboard Cache System
+CACHE_FILE = "dashboard_cache.json"
+DASHBOARD_CACHE = {
+    "current_members": 0,
+    "total_crashes": 0,
+    "history": [],
+    "last_update": None
+}
+
+def load_cache():
+    global DASHBOARD_CACHE
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r") as f:
+                DASHBOARD_CACHE.update(json.load(f))
+        except: pass
+
+def save_cache():
+    try:
+        with open(CACHE_FILE, "w") as f:
+            json.dump(DASHBOARD_CACHE, f)
+    except: pass
+
+load_cache()
 
 class AnnouncementCreate(BaseModel):
     channel_id: int
     message: str
     scheduled_at: str
+
+class AutoResponseCreate(BaseModel):
+    trigger: str
+    response: str
+    is_exact: bool
+
+class ExclusionsUpdate(BaseModel):
+    channels: List[int]
+
+bot = None # Set by main.py
+log_handler = None # Set by main.py
 
 with open('config.json', encoding="utf-8") as f:
     config = json.load(f)
@@ -51,11 +89,23 @@ async def logs_page(request: Request):
     if not user: return RedirectResponse("/")
     return templates.TemplateResponse("logs.html", {"request": request, "user": user, "active_page": "logs"})
 
+@app.get("/console")
+async def console_page(request: Request):
+    user = request.session.get("user")
+    if not user: return RedirectResponse("/")
+    return templates.TemplateResponse("console.html", {"request": request, "user": user, "active_page": "console"})
+
 @app.get("/stats")
 async def stats_page(request: Request):
     user = request.session.get("user")
     if not user: return RedirectResponse("/")
     return templates.TemplateResponse("stats.html", {"request": request, "user": user, "active_page": "stats"})
+
+@app.get("/auto-responder")
+async def auto_responder_page(request: Request):
+    user = request.session.get("user")
+    if not user: return RedirectResponse("/")
+    return templates.TemplateResponse("auto_responder.html", {"request": request, "user": user, "active_page": "auto_responder"})
 
 @app.get("/login")
 async def login():
@@ -124,7 +174,11 @@ async def health():
         status = "Degraded"
     if crash_count > 20:
         status = "Down"
-        
+    
+    DASHBOARD_CACHE["status"] = status
+    DASHBOARD_CACHE["crashes_last_12h"] = crash_count
+    save_cache()
+         
     return {
         "status": status,
         "crashes_last_12h": crash_count,
@@ -133,14 +187,39 @@ async def health():
 
 @app.get("/api/stats")
 async def stats():
-    # Example stats
-    q1 = "SELECT COUNT(*) FROM scheduled_announcements WHERE sent = FALSE"
+    global DASHBOARD_CACHE
+    # Try to get live data
+    member_count = DASHBOARD_CACHE["current_members"]
+    is_live = False
+    
+    if bot:
+        guild = bot.get_guild(config.get("GUILD_ID"))
+        if guild:
+            member_count = guild.member_count
+            DASHBOARD_CACHE["current_members"] = member_count
+            is_live = True
+
     q2 = "SELECT COUNT(*) FROM bot_crashes"
-    r1 = await Database.execute(q1)
     r2 = await Database.execute(q2)
+    total_crashes = r2[0][0] if r2 else DASHBOARD_CACHE["total_crashes"]
+    DASHBOARD_CACHE["total_crashes"] = total_crashes
+    
+    # Get history for the last 7 entries
+    q3 = "SELECT member_count, timestamp FROM member_stats ORDER BY timestamp DESC LIMIT 7"
+    r3 = await Database.execute(q3)
+    if r3:
+        history = [{"count": r[0], "time": r[1].isoformat()} for r in r3]
+        DASHBOARD_CACHE["history"] = history[::-1]
+    
+    DASHBOARD_CACHE["last_update"] = datetime.datetime.now().isoformat()
+    save_cache()
+    
     return {
-        "pending_announcements": r1[0][0],
-        "total_crashes": r2[0][0]
+        "current_members": member_count,
+        "total_crashes": total_crashes,
+        "history": DASHBOARD_CACHE["history"],
+        "last_update": DASHBOARD_CACHE["last_update"],
+        "is_live": is_live
     }
 
 @app.get("/api/announcements")
@@ -171,6 +250,90 @@ async def create_announcement(data: AnnouncementCreate):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/announcements/{id}")
+async def update_announcement(id: int, data: AnnouncementCreate):
+    try:
+        dt = datetime.datetime.strptime(data.scheduled_at, "%Y-%m-%d %H:%M")
+        query = "UPDATE scheduled_announcements SET channel_id = %s, message = %s, scheduled_at = %s WHERE id = %s"
+        await Database.execute(query, (data.channel_id, data.message, dt, id))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/announcements/{id}")
+async def delete_announcement(id: int):
+    try:
+        query = "DELETE FROM scheduled_announcements WHERE id = %s"
+        await Database.execute(query, (id,))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/guild/roles")
+async def get_roles():
+    if not bot: return []
+    guild = bot.get_guild(config.get("GUILD_ID"))
+    if not guild: return []
+    return [{"id": r.id, "name": r.name, "color": str(r.color)} for r in guild.roles if not r.is_default()]
+
+@app.get("/api/guild/emojis")
+async def get_emojis():
+    if not bot: return []
+    guild = bot.get_guild(config.get("GUILD_ID"))
+    if not guild: return []
+    return [{"id": e.id, "name": e.name, "url": str(e.url), "animated": e.animated} for e in guild.emojis]
+
+@app.get("/api/guild/channels")
+async def get_channels():
+    if not bot: return []
+    guild = bot.get_guild(config.get("GUILD_ID"))
+    if not guild: return []
+    return [{"id": c.id, "name": c.name} for c in guild.text_channels]
+
+@app.get("/api/console/logs")
+async def get_console_logs():
+    if not log_handler: return []
+    return log_handler.logs
+
+@app.get("/api/auto-responses")
+async def get_auto_responses():
+    query = "SELECT id, trigger_word, response_text, is_exact FROM auto_responses ORDER BY id DESC"
+    rows = await Database.execute(query)
+    return [{"id": r[0], "trigger": r[1], "response": r[2], "is_exact": bool(r[3])} for r in rows]
+
+@app.post("/api/auto-responses")
+async def create_auto_response(data: AutoResponseCreate):
+    query = "INSERT INTO auto_responses (trigger_word, response_text, is_exact) VALUES (%s, %s, %s)"
+    await Database.execute(query, (data.trigger, data.response, data.is_exact))
+    if bot:
+        cog = bot.get_cog("AutoResponder")
+        if cog: await cog.load_responses()
+    return {"status": "success"}
+
+@app.delete("/api/auto-responses/{id}")
+async def delete_auto_response(id: int):
+    query = "DELETE FROM auto_responses WHERE id = %s"
+    await Database.execute(query, (id,))
+    if bot:
+        cog = bot.get_cog("AutoResponder")
+        if cog: await cog.load_responses()
+    return {"status": "success"}
+
+@app.get("/api/auto-responses/exclusions")
+async def get_exclusions():
+    with open('config.json', encoding="utf-8") as f:
+        conf = json.load(f)
+    return conf.get("AUTO_RESPONDER_EXCLUDED_CHANNELS", [])
+
+@app.post("/api/auto-responses/exclusions")
+async def set_exclusions(data: ExclusionsUpdate):
+    with open('config.json', encoding="utf-8") as f:
+        conf = json.load(f)
+    conf["AUTO_RESPONDER_EXCLUDED_CHANNELS"] = data.channels
+    with open('config.json', 'w', encoding="utf-8") as f:
+        json.dump(conf, f, indent=2)
+    return {"status": "success"}
 
 if __name__ == "__main__":
     import uvicorn

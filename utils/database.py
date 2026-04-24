@@ -71,6 +71,15 @@ class Database:
                 member_count INT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS auto_responses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                trigger_word VARCHAR(255) NOT NULL,
+                response_text TEXT NOT NULL,
+                is_exact BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
             """
         ]
         

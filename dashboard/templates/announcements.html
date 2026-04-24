@@ -13,10 +13,11 @@
         <table>
             <thead>
                 <tr>
-                    <th>Salon ID</th>
+                    <th>Salon</th>
                     <th>Message</th>
                     <th>Date / Heure</th>
                     <th>Statut</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="ann-list">
@@ -26,38 +27,203 @@
     </div>
 </section>
 
-<!-- Modal pour nouvelle annonce -->
-<div id="addModal" class="modal">
-    <div class="modal-content">
-        <h2>Programmer une Annonce</h2>
+<!-- Modal pour nouvelle annonce / édition -->
+<div id="annModal" class="modal">
+    <div class="modal-content large">
+        <h2 id="modalTitle">Programmer une Annonce</h2>
         <form id="annForm">
-            <div class="form-group">
-                <label>ID du Salon</label>
-                <input type="number" id="channel_id" required placeholder="Ex: 123456789">
+            <input type="hidden" id="edit_id">
+            
+            <div class="form-row">
+                <div class="form-group flex-1">
+                    <label>Salon de destination</label>
+                    <select id="channel_id" required>
+                        <option value="">Sélectionner un salon...</option>
+                    </select>
+                </div>
+                <div class="form-group flex-1">
+                    <label>Date et Heure (Locale)</label>
+                    <input type="datetime-local" id="scheduled_at" required>
+                </div>
             </div>
+
             <div class="form-group">
                 <label>Message / Contenu</label>
-                <textarea id="message" rows="4" required placeholder="Votre message..."></textarea>
+                
+                <!-- Rich Tool Bar -->
+                <div class="rich-toolbar">
+                    <div class="toolbar-group">
+                        <span class="toolbar-label">Rôles:</span>
+                        <div id="roles-toolbar" class="toolbar-items"></div>
+                    </div>
+                    <div class="toolbar-group">
+                        <span class="toolbar-label">Emojis:</span>
+                        <div id="emojis-toolbar" class="toolbar-items"></div>
+                    </div>
+                </div>
+
+                <textarea id="message" rows="8" required placeholder="Votre message..."></textarea>
+                <small>Cliquez sur un rôle ou un emoji pour l'insérer dans le texte.</small>
             </div>
-            <div class="form-group">
-                <label>Date et Heure</label>
-                <input type="datetime-local" id="scheduled_at" required>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn-primary">Programmer</button>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
                 <button type="button" class="btn-secondary" onclick="closeModal()">Annuler</button>
+                <button type="submit" class="btn-primary" id="submitBtn">Programmer</button>
             </div>
         </form>
     </div>
 </div>
 
+<style>
+    .modal-content.large {
+        max-width: 800px;
+    }
+    .form-row {
+        display: flex;
+        gap: 20px;
+    }
+    .flex-1 { flex: 1; }
+
+    .rich-toolbar {
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    #message {
+        border-radius: 0 0 10px 10px;
+    }
+    .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .toolbar-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        min-width: 50px;
+    }
+    .toolbar-items {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        scrollbar-width: thin;
+    }
+    .toolbar-item {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        border: 1px solid transparent;
+        transition: 0.2s;
+    }
+    .toolbar-item:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: var(--accent);
+    }
+    .toolbar-emoji {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .toolbar-emoji:hover { transform: scale(1.2); }
+
+    .action-btns { display: flex; gap: 5px; }
+    .btn-icon {
+        padding: 6px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-main);
+        transition: 0.2s;
+    }
+    .btn-edit:hover { background: var(--accent); color: white; }
+    .btn-delete:hover { background: var(--danger); color: white; }
+</style>
+
 <script>
+    let channels = [];
+
+    async function loadData() {
+        try {
+            // Load Roles
+            const rolesResp = await fetch('/api/guild/roles');
+            const roles = await rolesResp.json();
+            document.getElementById('roles-toolbar').innerHTML = roles.map(r => `
+                <div class="toolbar-item" onclick="insertAtCursor('<@&${r.id}>')">
+                    <span style="color: ${r.color === '0x0' ? 'inherit' : r.color.replace('0x', '#')}">●</span> ${r.name}
+                </div>
+            `).join('');
+
+            // Load Emojis
+            const emojisResp = await fetch('/api/guild/emojis');
+            const emojis = await emojisResp.json();
+            document.getElementById('emojis-toolbar').innerHTML = emojis.map(e => `
+                <img src="${e.url}" class="toolbar-emoji" title="${e.name}" onclick="insertAtCursor('${e.animated ? '<a:' : '<:'}${e.name}:${e.id}>')">
+            `).join('');
+
+            // Load Channels
+            const chanResp = await fetch('/api/guild/channels');
+            channels = await chanResp.json();
+            const chanSelect = document.getElementById('channel_id');
+            chanSelect.innerHTML = '<option value="">Sélectionner un salon...</option>' + 
+                channels.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
+
+        } catch(e) { console.error(e); }
+    }
+
+    function insertAtCursor(text) {
+        const msgArea = document.getElementById('message');
+        const start = msgArea.selectionStart;
+        const end = msgArea.selectionEnd;
+        const content = msgArea.value;
+        msgArea.value = content.substring(0, start) + text + content.substring(end);
+        msgArea.focus();
+        msgArea.setSelectionRange(start + text.length, start + text.length);
+    }
+
     function showAddModal() {
-        document.getElementById('addModal').style.display = 'flex';
+        document.getElementById('modalTitle').innerText = "Programmer une Annonce";
+        document.getElementById('submitBtn').innerText = "Programmer";
+        document.getElementById('edit_id').value = "";
+        document.getElementById('annForm').reset();
+        document.getElementById('annModal').style.display = 'flex';
+    }
+
+    function showEditModal(id, channel_id, message, scheduled_at) {
+        document.getElementById('modalTitle').innerText = "Modifier l'Annonce";
+        document.getElementById('submitBtn').innerText = "Mettre à jour";
+        document.getElementById('edit_id').value = id;
+        document.getElementById('channel_id').value = channel_id;
+        document.getElementById('message').value = message;
+        
+        const date = new Date(scheduled_at);
+        const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().substring(0, 16);
+        document.getElementById('scheduled_at').value = localDate;
+        
+        document.getElementById('annModal').style.display = 'flex';
     }
 
     function closeModal() {
-        document.getElementById('addModal').style.display = 'none';
+        document.getElementById('annModal').style.display = 'none';
+    }
+
+    async function deleteAnnouncement(id) {
+        if (!confirm("Voulez-vous vraiment supprimer cette annonce ?")) return;
+        try {
+            const resp = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+            if (resp.ok) loadAnnouncements();
+        } catch(e) { console.error(e); }
     }
 
     async function loadAnnouncements() {
@@ -65,21 +231,37 @@
             const annResp = await fetch('/api/announcements');
             const annData = await annResp.json();
             const list = document.getElementById('ann-list');
-            list.innerHTML = annData.map(a => `
+            list.innerHTML = annData.map(a => {
+                const chanName = channels.find(c => c.id == a.channel_id)?.name || a.channel_id;
+                const dateStr = new Date(a.scheduled_at).toLocaleString();
+                
+                return `
                 <tr>
-                    <td><code>${a.channel_id}</code></td>
-                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.message || 'Embed Content'}</td>
-                    <td>${new Date(a.scheduled_at).toLocaleString()}</td>
+                    <td><code># ${chanName}</code></td>
+                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(a.message || 'Embed Content')}</td>
+                    <td>${dateStr}</td>
                     <td><span class="badge ${a.sent ? 'sent' : 'pending'}">${a.sent ? 'Envoyé' : 'En attente'}</span></td>
+                    <td class="action-btns">
+                        ${!a.sent ? `
+                            <button class="btn-icon btn-edit" onclick='showEditModal(${a.id}, "${a.channel_id}", ${JSON.stringify(a.message)}, "${a.scheduled_at}")'><i class="fas fa-edit"></i></button>
+                        ` : ''}
+                        <button class="btn-icon btn-delete" onclick="deleteAnnouncement(${a.id})"><i class="fas fa-trash"></i></button>
+                    </td>
                 </tr>
-            `).join('');
+            `}).join('');
         } catch(e) { console.error(e); }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     document.getElementById('annForm').onsubmit = async (e) => {
         e.preventDefault();
-        const localDate = new Date(document.getElementById('scheduled_at').value);
-        // Convert to ISO string and take the part before the Z
+        const localDateValue = document.getElementById('scheduled_at').value;
+        const localDate = new Date(localDateValue);
         const utcDate = localDate.toISOString().replace('T', ' ').substring(0, 16);
         
         const data = {
@@ -87,8 +269,13 @@
             message: document.getElementById('message').value,
             scheduled_at: utcDate
         };
-        const resp = await fetch('/api/announcements', {
-            method: 'POST',
+        
+        const editId = document.getElementById('edit_id').value;
+        const url = editId ? `/api/announcements/${editId}` : '/api/announcements';
+        const method = editId ? 'PUT' : 'POST';
+
+        const resp = await fetch(url, {
+            method: method,
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data)
         });
@@ -96,11 +283,11 @@
             closeModal();
             loadAnnouncements();
         } else {
-            alert("Erreur lors de la programmation");
+            alert("Erreur lors de l'opération");
         }
     };
 
-    setInterval(loadAnnouncements, 15000);
-    loadAnnouncements();
+    loadData().then(loadAnnouncements);
+    setInterval(loadAnnouncements, 30000);
 </script>
 {% endblock %}

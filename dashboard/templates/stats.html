@@ -8,43 +8,155 @@
     <div class="stat-card">
         <h3>Membres Actuels</h3>
         <div class="value" id="current-members">...</div>
+        <p class="stat-label" id="member-status">Récupération...</p>
     </div>
     <div class="stat-card">
         <h3>Total Crashs</h3>
         <div class="value" id="total-crashes">...</div>
+        <p class="stat-label">Nombre total d'erreurs enregistrées</p>
     </div>
 </div>
 
-<section class="content-section" style="margin-top: 2rem;">
-    <div class="section-header">
-        <h2>Historique des Crashs (Dernières 24h)</h2>
-    </div>
-    <div id="crashes-list">
-        <!-- Rempli par JS -->
-    </div>
-</section>
+<div class="last-update-info" style="margin-top: -1.5rem; margin-bottom: 2rem; font-size: 0.8rem; opacity: 0.6; text-align: right;">
+    Dernière mise à jour : <span id="last-update-time">...</span>
+</div>
 
+<div class="stats-visuals" style="display: flex; gap: 20px; margin-top: 2rem;">
+    <section class="content-section" style="flex: 2;">
+        <div class="section-header">
+            <h2>Évolution des Membres</h2>
+        </div>
+        <div class="chart-container" style="position: relative; height:300px; width:100%">
+            <canvas id="memberChart"></canvas>
+        </div>
+    </section>
+
+    <section class="content-section" style="flex: 1;">
+        <div class="section-header">
+            <h2>Santé du Bot</h2>
+        </div>
+        <div id="health-status" class="health-indicator">
+            <div class="status-dot"></div>
+            <span id="health-text">Vérification...</span>
+        </div>
+        <div id="crashes-summary" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+            <!-- Rempli par JS -->
+        </div>
+    </section>
+</div>
+
+<style>
+    .health-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        padding: 15px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 8px;
+    }
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: gray;
+    }
+    .status-healthy .status-dot { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
+    .status-degraded .status-dot { background: #f1c40f; box-shadow: 0 0 10px #f1c40f; }
+    .status-down .status-dot { background: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        opacity: 0.6;
+        margin-top: 5px;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    let memberChart;
+
     async function loadStats() {
         try {
             const statsResp = await fetch('/api/stats');
             const statsData = await statsResp.json();
-            document.getElementById('current-members').innerText = "Vérification...";
-            document.getElementById('total-crashes').innerText = statsData.total_crashes;
-
-            const crashResp = await fetch('/api/health');
-            const healthData = await crashResp.json();
             
-            // Simple display for now
-            const list = document.getElementById('crashes-list');
-            if (healthData.crashes_last_12h === 0) {
-                list.innerHTML = "<p style='color: var(--success);'>Aucun crash détecté dans les dernières 12h. Stable !</p>";
+            document.getElementById('current-members').innerText = statsData.current_members || 0;
+            document.getElementById('total-crashes').innerText = statsData.total_crashes || 0;
+            
+            const memberStatus = document.getElementById('member-status');
+            if (statsData.is_live) {
+                memberStatus.innerHTML = '<span style="color:var(--success)">● Live</span> - Données Discord directes';
             } else {
-                list.innerHTML = `<p style='color: var(--danger);'>${healthData.crashes_last_12h} crashs détectés. Vérifiez les logs !</p>`;
+                memberStatus.innerHTML = '<span style="color:var(--danger)">● Cached</span> - Bot hors ligne ou API Discord inaccessible';
             }
+
+            if (statsData.last_update) {
+                document.getElementById('last-update-time').innerText = new Date(statsData.last_update).toLocaleString();
+            }
+            const healthResp = await fetch('/api/health');
+            const healthData = await healthResp.json();
+            
+            const healthIndicator = document.getElementById('health-status');
+            const healthText = document.getElementById('health-text');
+            healthIndicator.className = 'health-indicator status-' + healthData.status.toLowerCase();
+            healthText.innerText = healthData.status;
+            
+            document.getElementById('crashes-summary').innerHTML = healthData.crashes_last_12h === 0 
+                ? "Aucun crash détecté dans les dernières 12h." 
+                : `<span style="color:#e74c3c">${healthData.crashes_last_12h} crashs</span> détectés (12h).`;
+
+            // Chart
+            updateChart(statsData.history);
+
         } catch(e) { console.error(e); }
     }
 
+    function updateChart(history) {
+        const ctx = document.getElementById('memberChart').getContext('2d');
+        const labels = history.map(h => new Date(h.time).toLocaleDateString() + ' ' + new Date(h.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+        const data = history.map(h => h.count);
+
+        if (memberChart) memberChart.destroy();
+
+        memberChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Membres',
+                    data: data,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#3498db'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                    }
+                }
+            }
+        });
+    }
+
     loadStats();
+    setInterval(loadStats, 60000);
 </script>
 {% endblock %}
