@@ -30,5 +30,20 @@
     "1": 841790986014425118,
     "2": 841790986014425118,
     "3": 841790986014425118
+  },
+  "DATABASE": {
+    "HOST": "database.dayhosting.fr",
+    "PORT": 3308,
+    "USER": "PASS_USER",
+    "PASS": "PASS_DB",
+    "NAME": "DB_NAME"
+  },
+  "DASHBOARD": {
+    "PORT": 25601,
+    "ROLE_ID": 833439687111999528,
+    "URL": "http://node02.dayhosting.fr:25601",
+    "CLIENT_ID": "YOUR_DISCORD_CLIENT_ID",
+    "CLIENT_SECRET": "YOUR_DISCORD_CLIENT_SECRET",
+    "SESSION_SECRET": "a_very_secret_key_change_me"
   }
 }

@@ -2,6 +2,7 @@ import disnake
 import json
 from disnake.ext import commands
 import asyncio
+from utils.database import Database
 
 class Ban(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -18,6 +19,12 @@ class Ban(commands.Cog):
         await member.send(f"Vous avez été banni de DayHosting par {ctx.author.name} pour la raison suivante : {reason}. Si vous souhaitez contester le bannissement, veuillez nous envoyer un email à contact@dayhosting.fr. Nous vous souhaitons une bonne continuation, Cordialement, l'équipe de DayHosting.fr.")
         await member.ban(reason=reason)
         await ctx.send(f"{member.mention} a été banni. Raison : {reason}")
+        
+        # Log to DB
+        await Database.execute(
+            "INSERT INTO staff_logs (staff_id, action, details) VALUES (%s, %s, %s)",
+            (ctx.author.id, "BAN", f"Target: {member.id} | Reason: {reason}")
+        )
 
     @commands.command(name="unban", description="Commande pour débannir un utilisateur")
     @commands.has_permissions(administrator=True)
@@ -25,6 +32,12 @@ class Ban(commands.Cog):
         user = await self.bot.fetch_user(id)
         await ctx.guild.unban(user)
         await ctx.send(f"{user.mention} a été débanni.")
+        
+        # Log to DB
+        await Database.execute(
+            "INSERT INTO staff_logs (staff_id, action, details) VALUES (%s, %s, %s)",
+            (ctx.author.id, "UNBAN", f"Target: {id}")
+        )
 
     @commands.command(name="tempban", description="Commande pour bannir temporairement un utilisateur")
     @commands.has_permissions(administrator=True)

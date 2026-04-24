@@ -1,6 +1,7 @@
 import disnake, json
 from disnake.ext import commands
 import asyncio
+from utils.database import Database
 
 class Mute(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -23,6 +24,12 @@ class Mute(commands.Cog):
         await member.send(
             f"Vous avez été rendu muet sur DayHosting par {ctx.author.name} pour la raison suivante : {reason}. Si vous souhaitez contester cette action, veuillez nous envoyer un email à contact@dayhosting.fr. Nous vous souhaitons une bonne continuation, Cordialement, l'équipe de DayHosting.fr.")
         await ctx.send(f"{member.mention} a été rendu muet \n Raison: {reason}")
+        
+        # Log to DB
+        await Database.execute(
+            "INSERT INTO staff_logs (staff_id, action, details) VALUES (%s, %s, %s)",
+            (ctx.author.id, "MUTE", f"Target: {member.id} | Reason: {reason}")
+        )
 
     @commands.command(name="unmute", description="Commande pour annuler le mute")
     @commands.has_permissions(administrator=True)
@@ -33,6 +40,12 @@ class Mute(commands.Cog):
             await member.send(
                 f"Votre mute sur DayHosting a été levé par {ctx.author.name}. Si vous avez des questions, veuillez nous envoyer un email à contact@dayhosting.fr. Nous vous souhaitons une bonne continuation, Cordialement, l'équipe de DayHosting.fr.")
             await ctx.send(f"{member.mention} n'est plus muet")
+            
+            # Log to DB
+            await Database.execute(
+                "INSERT INTO staff_logs (staff_id, action, details) VALUES (%s, %s, %s)",
+                (ctx.author.id, "UNMUTE", f"Target: {member.id}")
+            )
         else:
             await ctx.send(f"{member.mention} n'est pas muet.")
 
