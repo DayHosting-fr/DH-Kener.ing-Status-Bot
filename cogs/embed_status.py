@@ -36,7 +36,8 @@ class KenerEmbed(commands.Cog):
     async def cog_load(self):
         """Called when the cog is loaded."""
         if not self.session:
-            self.session = aiohttp.ClientSession(headers=HEADERS)
+            timeout = aiohttp.ClientTimeout(total=10)
+            self.session = aiohttp.ClientSession(headers=HEADERS, timeout=timeout)
         
         self.channel = self.bot.get_channel(int(CHANNEL_ID))
         if self.channel:
@@ -69,7 +70,8 @@ class KenerEmbed(commands.Cog):
     async def fetch_data(self, endpoint, params=None):
         # Fonction générique pour récupérer des données de l'API Kener v4 via aiohttp
         if not self.session:
-            self.session = aiohttp.ClientSession(headers=HEADERS)
+            timeout = aiohttp.ClientTimeout(total=10)
+            self.session = aiohttp.ClientSession(headers=HEADERS, timeout=timeout)
             
         try:
             url = f"{API_URL}/api/v4/{endpoint}"
@@ -243,7 +245,7 @@ class KenerEmbed(commands.Cog):
         embed.set_footer(text="Dernière mise à jour automatique")
         return embed
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(minutes=5)
     async def auto_update(self):
         # Mise à jour automatique toutes les 60 secondes
         try:

@@ -152,13 +152,16 @@ class Defcon(commands.Cog):
                     embed.title = f"🚨 DEFCON {level} — Alerte"
                     embed.description = f"Le niveau DEFCON est passé de {old} à {level}.\n\n{embed.description}"
 
-                    # Send DM to all members with the role
-                    for member in role.members:
+                    # Send DM to all members with the role in parallel
+                    async def send_dm(member, embed):
                         try:
                             await member.send(embed=embed)
                         except Exception:
-                            # User has DMs disabled or other error, skip
                             pass
+                    
+                    tasks = [send_dm(m, embed) for m in role.members]
+                    if tasks:
+                        await asyncio.gather(*tasks)
             except Exception:
                 # Error getting role or sending DMs, skip
                 pass
