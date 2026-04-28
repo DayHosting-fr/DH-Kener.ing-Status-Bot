@@ -224,12 +224,16 @@ async def stats():
 
 @app.get("/api/announcements")
 async def get_announcements():
-    query = "SELECT id, channel_id, scheduled_at, sent, message FROM scheduled_announcements ORDER BY scheduled_at DESC LIMIT 50"
-    rows = await Database.execute(query)
-    return [
-        {"id": r[0], "channel_id": r[1], "scheduled_at": r[2].isoformat(), "sent": bool(r[3]), "message": r[4]}
-        for r in rows
-    ]
+    try:
+        query = "SELECT id, channel_id, scheduled_at, sent, message FROM scheduled_announcements ORDER BY scheduled_at DESC LIMIT 50"
+        rows = await Database.execute(query)
+        return [
+            {"id": r[0], "channel_id": r[1], "scheduled_at": r[2].isoformat(), "sent": bool(r[3]), "message": r[4]}
+            for r in rows
+        ]
+    except Exception as e:
+        print(f"Error in get_announcements: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/logs")
 async def get_logs():
@@ -298,9 +302,13 @@ async def get_console_logs():
 
 @app.get("/api/auto-responses")
 async def get_auto_responses():
-    query = "SELECT id, trigger_word, response_text, is_exact FROM auto_responses ORDER BY id DESC"
-    rows = await Database.execute(query)
-    return [{"id": r[0], "trigger": r[1], "response": r[2], "is_exact": bool(r[3])} for r in rows]
+    try:
+        query = "SELECT id, trigger_word, response_text, is_exact FROM auto_responses ORDER BY id DESC"
+        rows = await Database.execute(query)
+        return [{"id": r[0], "trigger": r[1], "response": r[2], "is_exact": bool(r[3])} for r in rows]
+    except Exception as e:
+        print(f"Error in get_auto_responses: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/auto-responses")
 async def create_auto_response(data: AutoResponseCreate):

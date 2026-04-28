@@ -200,14 +200,19 @@
         document.getElementById('annModal').style.display = 'flex';
     }
 
-    function showEditModal(id, channel_id, message, scheduled_at) {
+    let allAnnouncements = [];
+
+    function showEditModal(id) {
+        const a = allAnnouncements.find(ann => ann.id == id);
+        if (!a) return;
+
         document.getElementById('modalTitle').innerText = "Modifier l'Annonce";
         document.getElementById('submitBtn').innerText = "Mettre à jour";
-        document.getElementById('edit_id').value = id;
-        document.getElementById('channel_id').value = channel_id;
-        document.getElementById('message').value = message;
+        document.getElementById('edit_id').value = a.id;
+        document.getElementById('channel_id').value = a.channel_id;
+        document.getElementById('message').value = a.message || "";
         
-        const date = new Date(scheduled_at);
+        const date = new Date(a.scheduled_at);
         const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().substring(0, 16);
         document.getElementById('scheduled_at').value = localDate;
         
@@ -229,9 +234,11 @@
     async function loadAnnouncements() {
         try {
             const annResp = await fetch('/api/announcements');
-            const annData = await annResp.json();
+            if (!annResp.ok) throw new Error("Failed to fetch announcements");
+            allAnnouncements = await annResp.json();
+            
             const list = document.getElementById('ann-list');
-            list.innerHTML = annData.map(a => {
+            list.innerHTML = allAnnouncements.map(a => {
                 const chanName = channels.find(c => c.id == a.channel_id)?.name || a.channel_id;
                 const dateStr = new Date(a.scheduled_at).toLocaleString();
                 
@@ -243,7 +250,7 @@
                     <td><span class="badge ${a.sent ? 'sent' : 'pending'}">${a.sent ? 'Envoyé' : 'En attente'}</span></td>
                     <td class="action-btns">
                         ${!a.sent ? `
-                            <button class="btn-icon btn-edit" onclick='showEditModal(${a.id}, "${a.channel_id}", ${JSON.stringify(a.message)}, "${a.scheduled_at}")'><i class="fas fa-edit"></i></button>
+                            <button class="btn-icon btn-edit" onclick="showEditModal(${a.id})"><i class="fas fa-edit"></i></button>
                         ` : ''}
                         <button class="btn-icon btn-delete" onclick="deleteAnnouncement(${a.id})"><i class="fas fa-trash"></i></button>
                     </td>

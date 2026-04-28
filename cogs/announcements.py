@@ -21,7 +21,21 @@ class Announcements(commands.Cog):
         
         for row in rows:
             ann_id, channel_id, message, embed_json = row
+            # Ensure channel_id is an int
+            try:
+                channel_id = int(channel_id)
+            except (ValueError, TypeError):
+                print(f"Invalid channel_id {channel_id} for announcement {ann_id}")
+                continue
+
             channel = self.bot.get_channel(channel_id)
+            if not channel:
+                try:
+                    channel = await self.bot.fetch_channel(channel_id)
+                except Exception as e:
+                    print(f"Channel {channel_id} not found/accessible for announcement {ann_id}: {e}")
+                    continue
+
             if channel:
                 try:
                     embed = None
@@ -33,8 +47,6 @@ class Announcements(commands.Cog):
                     await Database.execute("UPDATE scheduled_announcements SET sent = TRUE WHERE id = %s", (ann_id,))
                 except Exception as e:
                     print(f"Error sending scheduled announcement {ann_id}: {e}")
-            else:
-                print(f"Channel {channel_id} not found for announcement {ann_id}")
 
     @commands.slash_command(name="announce")
     async def announce(self, inter):

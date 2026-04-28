@@ -103,32 +103,42 @@
     let currentExclusions = [];
 
     async function init() {
-        await loadChannels();
-        await loadExclusions();
-        await loadResponses();
+        try {
+            await loadChannels();
+            await loadExclusions();
+            await loadResponses();
+        } catch (e) {
+            console.error("Init failed:", e);
+        }
     }
 
     async function loadChannels() {
-        const resp = await fetch('/api/guild/channels');
-        allChannels = await resp.json();
-        const select = document.getElementById('exclude_channel_select');
-        select.innerHTML = '<option value="">Ajouter un salon...</option>' + 
-            allChannels.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
+        try {
+            const resp = await fetch('/api/guild/channels');
+            if (!resp.ok) throw new Error("Failed to load channels");
+            allChannels = await resp.json();
+            const select = document.getElementById('exclude_channel_select');
+            select.innerHTML = '<option value="">Ajouter un salon...</option>' + 
+                allChannels.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
+        } catch (e) { console.error(e); }
     }
 
     async function loadExclusions() {
-        const resp = await fetch('/api/auto-responses/exclusions');
-        currentExclusions = await resp.json();
-        const list = document.getElementById('exclusions-list');
-        list.innerHTML = currentExclusions.map(id => {
-            const chan = allChannels.find(c => c.id == id);
-            return `
-                <div class="exclusion-item">
-                    <span># ${chan ? chan.name : id}</span>
-                    <button class="btn-remove" onclick="removeExclusion('${id}')">&times;</button>
-                </div>
-            `;
-        }).join('');
+        try {
+            const resp = await fetch('/api/auto-responses/exclusions');
+            if (!resp.ok) throw new Error("Failed to load exclusions");
+            currentExclusions = await resp.json();
+            const list = document.getElementById('exclusions-list');
+            list.innerHTML = currentExclusions.map(id => {
+                const chan = allChannels.find(c => c.id == id);
+                return `
+                    <div class="exclusion-item">
+                        <span># ${chan ? chan.name : id}</span>
+                        <button class="btn-remove" onclick="removeExclusion('${id}')">&times;</button>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) { console.error(e); }
     }
 
     async function addExclusion() {
@@ -155,6 +165,10 @@
     async function loadResponses() {
         try {
             const resp = await fetch('/api/auto-responses');
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({detail: "Server Error"}));
+                throw new Error(err.detail || "Failed to load responses");
+            }
             const data = await resp.json();
             const list = document.getElementById('responses-list');
             list.innerHTML = data.map(r => `
@@ -167,7 +181,10 @@
                     </td>
                 </tr>
             `).join('');
-        } catch(e) { console.error(e); }
+        } catch(e) { 
+            console.error(e);
+            document.getElementById('responses-list').innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger);">Erreur: ${e.message}</td></tr>`;
+        }
     }
 
     function showAddModal() {
