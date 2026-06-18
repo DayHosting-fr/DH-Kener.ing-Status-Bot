@@ -143,8 +143,8 @@
 
     async function addExclusion() {
         const val = document.getElementById('exclude_channel_select').value;
-        if (!val || currentExclusions.includes(val) || currentExclusions.includes(parseInt(val))) return;
-        currentExclusions.push(parseInt(val));
+        if (!val || currentExclusions.includes(val)) return;
+        currentExclusions.push(val);
         await saveExclusions();
     }
 

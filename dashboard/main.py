@@ -46,7 +46,7 @@ class AutoResponseCreate(BaseModel):
     is_exact: bool
 
 class ExclusionsUpdate(BaseModel):
-    channels: List[int]
+    channels: List[str]
 
 bot = None # Set by main.py
 log_handler = None # Set by main.py
@@ -228,7 +228,7 @@ async def get_announcements():
         query = "SELECT id, channel_id, scheduled_at, sent, message FROM scheduled_announcements ORDER BY scheduled_at DESC LIMIT 50"
         rows = await Database.execute(query)
         return [
-            {"id": r[0], "channel_id": r[1], "scheduled_at": r[2].isoformat(), "sent": bool(r[3]), "message": r[4]}
+            {"id": r[0], "channel_id": str(r[1]), "scheduled_at": r[2].isoformat(), "sent": bool(r[3]), "message": r[4]}
             for r in rows
         ]
     except Exception as e:
@@ -240,7 +240,7 @@ async def get_logs():
     query = "SELECT staff_id, action, details, timestamp FROM staff_logs ORDER BY timestamp DESC LIMIT 50"
     rows = await Database.execute(query)
     return [
-        {"staff_id": r[0], "action": r[1], "details": r[2], "timestamp": r[3].isoformat()}
+        {"staff_id": str(r[0]), "action": r[1], "details": r[2], "timestamp": r[3].isoformat()}
         for r in rows
     ]
 
@@ -279,21 +279,21 @@ async def get_roles():
     if not bot: return []
     guild = bot.get_guild(config.get("GUILD_ID"))
     if not guild: return []
-    return [{"id": r.id, "name": r.name, "color": str(r.color)} for r in guild.roles if not r.is_default()]
+    return [{"id": str(r.id), "name": r.name, "color": str(r.color)} for r in guild.roles if not r.is_default()]
 
 @app.get("/api/guild/emojis")
 async def get_emojis():
     if not bot: return []
     guild = bot.get_guild(config.get("GUILD_ID"))
     if not guild: return []
-    return [{"id": e.id, "name": e.name, "url": str(e.url), "animated": e.animated} for e in guild.emojis]
+    return [{"id": str(e.id), "name": e.name, "url": str(e.url), "animated": e.animated} for e in guild.emojis]
 
 @app.get("/api/guild/channels")
 async def get_channels():
     if not bot: return []
     guild = bot.get_guild(config.get("GUILD_ID"))
     if not guild: return []
-    return [{"id": c.id, "name": c.name} for c in guild.text_channels]
+    return [{"id": str(c.id), "name": c.name} for c in guild.text_channels]
 
 @app.get("/api/console/logs")
 async def get_console_logs():
@@ -332,7 +332,8 @@ async def delete_auto_response(id: int):
 async def get_exclusions():
     with open('config.json', encoding="utf-8") as f:
         conf = json.load(f)
-    return conf.get("AUTO_RESPONDER_EXCLUDED_CHANNELS", [])
+    exclusions = conf.get("AUTO_RESPONDER_EXCLUDED_CHANNELS", [])
+    return [str(id) for id in exclusions]
 
 @app.post("/api/auto-responses/exclusions")
 async def set_exclusions(data: ExclusionsUpdate):
